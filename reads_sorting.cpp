@@ -9,8 +9,9 @@
 #include <algorithm>
 #include <map>
 #include <iomanip>
-#include <list>
+#include <vector>
 #include <stack>
+#include "unordered_dense.h"
 #include "zstr/src/zstr.hpp"
 
 using namespace std;
@@ -43,6 +44,7 @@ vector<uint32_t> read_line_position(const string& filename){
     else{
         cerr << "Error opening the file (read_line_position)." << endl;
     }
+    return {};
 }
 
 vector<uint32_t> contig_line_position(const string& gfa_file){
@@ -66,6 +68,7 @@ vector<uint32_t> contig_line_position(const string& gfa_file){
     else{
         cerr << "Error opening the file (read_line_position)." << endl;
     }
+    return {};
 }
 
 string get_read_sequence(const vector<uint32_t>& read_line_pos, const string& filename, uint32_t read_id){
@@ -85,6 +88,7 @@ string get_read_sequence(const vector<uint32_t>& read_line_pos, const string& fi
     else{
         cerr << "Error opening the input file (get_read_sequence)." << endl;
     }
+    return "";
 }
 
 string get_read_header(const vector<uint32_t>& read_line_pos, const string& filename, uint32_t read_id){
@@ -108,19 +112,20 @@ string get_read_header(const vector<uint32_t>& read_line_pos, const string& file
     else{
         cerr << "Error opening the input file (get_read_header)." << endl;
     }
+    return "";
 }
 
 vector<int> order_ctgs(const string& gfa_file){
-    //parcourir le gfa et créer une map int, list<int> (à éléments uniques) pour stocker les liens entre contigs
-    map<int, list<int>> links;
+    //parcourir le gfa et créer une map int, vector<int> (à éléments uniques) pour stocker les liens entre contigs
+    ankerl::unordered_dense::map<int, vector<int>> links;
     int nb_contigs=0;
 
-    typedef pair <int, list<int>> Int_List;
+    typedef pair <int, vector<int>> Int_vector;
     string ctg1, ctg2;
     int num_ctg1, num_ctg2=0;
     char c;
     int i;
-    list<int>::iterator it;
+    vector<int>::iterator it;
     fstream gfa(gfa_file, ios::in);
     if(gfa){
         string line;
@@ -159,22 +164,22 @@ vector<int> order_ctgs(const string& gfa_file){
                 num_ctg2 = stoi(ctg2);
                 num_ctg2-=1;
 
-                //insertion du couple de contigs dans links (seulement si le contig2 n'est pas déjà dans la liste du ctg1 et que ctg1!=ctg2)
+                //insertion du couple de contigs dans links (seulement si le contig2 n'est pas déjà dans la vectore du ctg1 et que ctg1!=ctg2)
                 if(num_ctg1!=num_ctg2){
                     if(links.find(num_ctg1)!=links.end()){
-                        //ctg1 est trouvé donc on insère ctg2 dans sa liste s'il n'y est pas déjà
+                        //ctg1 est trouvé donc on insère ctg2 dans sa vectore s'il n'y est pas déjà
                         it=links[num_ctg1].begin();
                         while(it!=links[num_ctg1].end() && *it!=num_ctg2){
                             it++;
                         }
                         if(it==links[num_ctg1].end()){
-                            //on a pas trouvé ctg2 donc on peut l'ajouter dans la liste
+                            //on a pas trouvé ctg2 donc on peut l'ajouter dans la vectore
                             links[num_ctg1].push_back(num_ctg2);
                         }
                     }
                     else{
-                        //ctg1 n'est pas trouvé donc on le créé dans links avec ctg2 dans sa liste
-                        links.insert(Int_List(num_ctg1, {num_ctg2}));
+                        //ctg1 n'est pas trouvé donc on le créé dans links avec ctg2 dans sa vectore
+                        links.insert(Int_vector(num_ctg1, {num_ctg2}));
                     }
                 }
             }
@@ -186,7 +191,7 @@ vector<int> order_ctgs(const string& gfa_file){
     //Affichage de la map de liens du graphe
     /*for (auto& elem : links){
         cout << "first "+to_string(elem.first+1) << endl;
-        for(list<int>::iterator iter = elem.second.begin(); iter!=elem.second.end(); iter++){
+        for(vector<int>::iterator iter = elem.second.begin(); iter!=elem.second.end(); iter++){
             cout << *iter+1 << endl;
         }
     }*/
@@ -205,7 +210,7 @@ vector<int> order_ctgs(const string& gfa_file){
                 num_ctg2 = pilegraph.top();
                 order.push_back(num_ctg2);
                 pilegraph.pop();
-                for(list<int>::iterator ite = links[num_ctg2].begin(); ite!=links[num_ctg2].end(); ite++){
+                for(vector<int>::iterator ite = links[num_ctg2].begin(); ite!=links[num_ctg2].end(); ite++){
                     if(seen[*ite]==0){
                         seen[*ite]=1;
                         pilegraph.push(*ite);
@@ -222,7 +227,7 @@ vector<int> order_ctgs(const string& gfa_file){
     return(order);
 }
 
-map<int, int> unmapped_reads_miniasm(int nb_reads, const string& gfa_file){
+ankerl::unordered_dense::map<int, int> unmapped_reads_miniasm(int nb_reads, const string& gfa_file){
     typedef pair <int, int> Int_Pair;
     //renvoie les numéros des reads qui n'ont pas été intégrés dans le gfa, dans une map
     
@@ -241,7 +246,7 @@ map<int, int> unmapped_reads_miniasm(int nb_reads, const string& gfa_file){
             }
         }
     }
-    map<int, int> unmapped;
+    ankerl::unordered_dense::map<int, int> unmapped;
     for(int i=0; i<reads.size(); i++){
         if(reads[i]==0){
             unmapped.insert(Int_Pair(i, 0));
@@ -251,12 +256,12 @@ map<int, int> unmapped_reads_miniasm(int nb_reads, const string& gfa_file){
     return(unmapped);
 }
 
-map<int, list<int>> link_unmapped_gz(int nb_reads, const string& gfa_file, const string& compressed_paf_file){
+ankerl::unordered_dense::map<int, vector<int>> link_unmapped_gz(int nb_reads, const string& gfa_file, const string& compressed_paf_file){
     //renvoie une map qui lie un read mappé à un read non mappé
     typedef pair <int, int> Int_Pair;
-    typedef pair <int, list<int>> Int_List;
-    map<int, int> unmapped = unmapped_reads_miniasm(nb_reads, gfa_file);
-    map<int, list<int>> links;
+    typedef pair <int, vector<int>> Int_vector;
+    ankerl::unordered_dense::map<int, int> unmapped = unmapped_reads_miniasm(nb_reads, gfa_file);
+    ankerl::unordered_dense::map<int, vector<int>> links;
     int num_current_read;
     int current_read_align;
     zstr::ifstream paf(compressed_paf_file);
@@ -281,7 +286,7 @@ map<int, list<int>> link_unmapped_gz(int nb_reads, const string& gfa_file, const
                     }
                     if(links.find(current_read_align)==links.end()){
                         //le read n'était pas déjà associé à un non mappé
-                        links.insert(Int_List(current_read_align, {num_current_read}));
+                        links.insert(Int_vector(current_read_align, {num_current_read}));
                     }
                     else{
                         //le read était déjà dans la map
@@ -322,7 +327,7 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
     typedef pair <int, int> Int_Pair;
     vector<uint32_t> read_line_pos = read_line_position(reads_file);
     int nb_reads = read_line_pos.size()/2-1;
-    map<int, list<int>> unmapped_align = link_unmapped_gz(nb_reads, gfa_file, paf_file);
+    ankerl::unordered_dense::map<int, vector<int>> unmapped_align = link_unmapped_gz(nb_reads, gfa_file, paf_file);
     vector<uint32_t> contig_line_pos = contig_line_position(gfa_file);
     int nb_contigs = contig_line_pos.size();
     int mapped=0;
@@ -352,7 +357,7 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
                 out << get_read_header(read_line_pos, reads_file, stoul(num_read))+"\n"+get_read_sequence(read_line_pos, reads_file, stoul(num_read)) << endl;
                 //s'il y a des reads non mappés à insérer ici, on les insère
                 if(unmapped_align.find(stoi(num_read))!=unmapped_align.end()){
-                    for(list<int>::iterator it = unmapped_align[stoi(num_read)].begin(); it!=unmapped_align[stoi(num_read)].end(); it++){
+                    for(vector<int>::iterator it = unmapped_align[stoi(num_read)].begin(); it!=unmapped_align[stoi(num_read)].end(); it++){
                         out << get_read_header(read_line_pos, reads_file, *it)+"\n"+get_read_sequence(read_line_pos, reads_file, *it) << endl;
                         mapped++;
                     }
@@ -375,7 +380,7 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
                 out << get_read_header(read_line_pos, reads_file, stoul(num_read))+"\n"+get_read_sequence(read_line_pos, reads_file, stoul(num_read)) << endl;
                 //s'il y a des reads non mappés à insérer ici, on les insère
                 if(unmapped_align.find(stoi(num_read))!=unmapped_align.end()){
-                    for(list<int>::iterator it = unmapped_align[stoi(num_read)].begin(); it!=unmapped_align[stoi(num_read)].end(); it++){
+                    for(vector<int>::iterator it = unmapped_align[stoi(num_read)].begin(); it!=unmapped_align[stoi(num_read)].end(); it++){
                         out << get_read_header(read_line_pos, reads_file, *it)+"\n"+get_read_sequence(read_line_pos, reads_file, *it) << endl;
                         mapped++;
                     }
@@ -386,7 +391,7 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
             }
         }
         for (auto& elem : unmapped_align){
-            for(list<int>::iterator it = elem.second.begin(); it!=elem.second.end(); it++){
+            for(vector<int>::iterator it = elem.second.begin(); it!=elem.second.end(); it++){
                 out << get_read_header(read_line_pos, reads_file, *it)+"\n"+get_read_sequence(read_line_pos, reads_file, *it) << endl;
                 non_map++;
             }
