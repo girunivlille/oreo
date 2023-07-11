@@ -33,7 +33,7 @@ CCLIBS = -lz
 # REGLES
 #
 
-all: compile-autre msg $(OBJETS) $(EXEC_O)
+all: msg $(OBJETS) $(EXEC_O)
 	@echo "Creation des executables..."
 	@for i in $(EXEC); do \
 	$(CC) -o $$i $$i.o $(OBJETS) $(CCLIBS); \
@@ -46,10 +46,6 @@ msg:
 debug: CCFLAGS = $(CCFLAGS_STD) $(CCFLAGS_DEBUG)
 debug: all
 
-
-compile-autre:
-	make -C minimap2
-	make -C miniasm
 #
 # REGLES PAR DEFAUT
 #

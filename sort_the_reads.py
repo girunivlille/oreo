@@ -45,7 +45,7 @@ def main():
 
 
     print("Mapping the reads...")
-    command = 'minimap2/minimap2 -x ava-pb -t16 -k28 -w15 '+read_filename_copy+' '+read_filename_copy+' | gzip -1 > '+read_filename_paf
+    command = 'minimap2 -x ava-pb -t16 -k28 -w15 '+read_filename_copy+' '+read_filename_copy+' | gzip -1 > '+read_filename_paf
     os.system(command)
 
     t3 = time.time()
@@ -54,7 +54,7 @@ def main():
 
     #miniasm
     print("Building contigs...")
-    command = 'miniasm/miniasm -I1 -F1 -f '+read_filename+' '+read_filename_paf+' > '+read_filename_gfa
+    command = 'miniasm -I1 -F1 -f '+read_filename+' '+read_filename_paf+' > '+read_filename_gfa
     os.system(command)
 
     t4 = time.time()
