@@ -3,7 +3,7 @@
 #
 
 EXEC = copy_readsfile reads_sorting
-OBJETS = 
+OBJETS =
 NOM_PROJET = sort_the_reads
 
 #
@@ -33,7 +33,7 @@ CCLIBS = -lz
 # REGLES
 #
 
-all: msg $(OBJETS) $(EXEC_O)
+all: compile-autre msg $(OBJETS) $(EXEC_O)
 	@echo "Creation des executables..."
 	@for i in $(EXEC); do \
 	$(CC) -o $$i $$i.o $(OBJETS) $(CCLIBS); \
@@ -46,6 +46,10 @@ msg:
 debug: CCFLAGS = $(CCFLAGS_STD) $(CCFLAGS_DEBUG)
 debug: all
 
+
+compile-autre:
+	make -C minimap2
+	make -C miniasm
 #
 # REGLES PAR DEFAUT
 #
@@ -54,7 +58,7 @@ debug: all
 	@cd $(dir $<) && ${CC} ${CCFLAGS} -c $(notdir $<) -o $(notdir $@)
 
 #
-# REGLES GENERALES 
+# REGLES GENERALES
 #
 
 clean:
@@ -77,7 +81,7 @@ depend:
 	@echo "Termine."
 
 #
-# CREATION ARCHIVE 
+# CREATION ARCHIVE
 #
 
 ARCHIVE_FILES = *
