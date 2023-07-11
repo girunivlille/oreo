@@ -1,0 +1,36 @@
+{% set version = "0" %}
+
+package:
+    name: sort_the_reads
+    version: {{ version }}
+
+build:
+  number: 0
+
+source:
+    git_url: https://github.com/girunivlille/sort_the_reads.git
+    git_tag: conda-v0.1
+    git_depth: 0 # (Defaults to -1/not shallow)
+
+
+requirements:
+  build:
+    - make
+    - {{ compiler('cxx') }}
+    - zlib
+  host:
+    - zlib
+    - python>=3.9.0
+  run:
+    - zlib
+    - python>=3.9.0
+    - miniasm
+    - minimap2
+
+test:
+  commands:
+    - miniasm -V
+
+about:
+  home: https://github.com/girunivlille/sort_the_reads
+  summary: Sorting reads to bring k-mers closer
