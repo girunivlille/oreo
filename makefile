@@ -2,7 +2,7 @@
 # CONFIGURATION GENERALE
 #
 
-EXEC = copy_readsfile reads_sorting
+EXEC = reads_sorting
 OBJETS =
 NOM_PROJET = sort_the_reads
 
@@ -92,6 +92,6 @@ archive: clean
 	@echo "Termine."
 
 # DEPENDANCES
-copy_readsfile.o: copy_readsfile.cpp
+# copy_readsfile.o: copy_readsfile.cpp
 reads_sorting.o: reads_sorting.cpp zstr/src/zstr.hpp \
  zstr/src/strict_fstream.hpp
