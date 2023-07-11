@@ -290,7 +290,7 @@ ankerl::unordered_dense::map<int, vector<int>> link_unmapped_gz(int nb_reads, co
                     if(unmapped.find(current_read_align)==unmapped.end() && newly_mapped.find(current_read_align)==newly_mapped.end()){
                         if(links.find(current_read_align)==links.end()){
                             //le read n'était pas déjà associé à un non mappé
-                            links.insert(Int_List(current_read_align, {num_current_read}));
+                            links.insert(Int_vector(current_read_align, {num_current_read}));
                         }
                         else{
                             //le read était déjà dans la map
