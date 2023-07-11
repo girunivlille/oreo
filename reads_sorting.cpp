@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <map>
 #include <iomanip>
-#include <vector>
 #include <stack>
 #include "unordered_dense.h"
 #include "zstr/src/zstr.hpp"
@@ -164,21 +163,21 @@ vector<int> order_ctgs(const string& gfa_file){
                 num_ctg2 = stoi(ctg2);
                 num_ctg2-=1;
 
-                //insertion du couple de contigs dans links (seulement si le contig2 n'est pas déjà dans la vectore du ctg1 et que ctg1!=ctg2)
+                //insertion du couple de contigs dans links (seulement si le contig2 n'est pas déjà dans la liste du ctg1 et que ctg1!=ctg2)
                 if(num_ctg1!=num_ctg2){
                     if(links.find(num_ctg1)!=links.end()){
-                        //ctg1 est trouvé donc on insère ctg2 dans sa vectore s'il n'y est pas déjà
+                        //ctg1 est trouvé donc on insère ctg2 dans sa liste s'il n'y est pas déjà
                         it=links[num_ctg1].begin();
                         while(it!=links[num_ctg1].end() && *it!=num_ctg2){
                             it++;
                         }
                         if(it==links[num_ctg1].end()){
-                            //on a pas trouvé ctg2 donc on peut l'ajouter dans la vectore
+                            //on a pas trouvé ctg2 donc on peut l'ajouter dans la liste
                             links[num_ctg1].push_back(num_ctg2);
                         }
                     }
                     else{
-                        //ctg1 n'est pas trouvé donc on le créé dans links avec ctg2 dans sa vectore
+                        //ctg1 n'est pas trouvé donc on le créé dans links avec ctg2 dans sa liste
                         links.insert(Int_vector(num_ctg1, {num_ctg2}));
                     }
                 }
@@ -241,7 +240,7 @@ ankerl::unordered_dense::map<int, int> unmapped_reads_miniasm(int nb_reads, cons
             if(words_of_line.size()>0 && words_of_line[0]=="a"){
                 //words_of_line[7][2]
                 //string num_read = words_of_line[4];
-                string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[split_string(split_string(words_of_line[3], ':')[0], '.').size()-1];  //---------------------------------------------------------
+                string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[split_string(split_string(words_of_line[3], ':')[0], '.').size()-1]; 
                 reads[stoul(num_read)] = 1;
             }
         }
@@ -261,6 +260,7 @@ ankerl::unordered_dense::map<int, vector<int>> link_unmapped_gz(int nb_reads, co
     typedef pair <int, int> Int_Pair;
     typedef pair <int, vector<int>> Int_vector;
     ankerl::unordered_dense::map<int, int> unmapped = unmapped_reads_miniasm(nb_reads, gfa_file);
+    ankerl::unordered_dense::map<int, int> newly_mapped;
     ankerl::unordered_dense::map<int, vector<int>> links;
     int num_current_read;
     int current_read_align;
@@ -272,34 +272,60 @@ ankerl::unordered_dense::map<int, vector<int>> link_unmapped_gz(int nb_reads, co
         while(!paf.eof()){
             vector<string> words_of_line = split_string(line, '\t');
             if(words_of_line.size()>0){
-                num_current_read = stoi(split_string(words_of_line[0], '.')[split_string(words_of_line[0], '.').size()-1]);    //------------------------------------------------------------------
+                num_current_read = stoi(split_string(words_of_line[0], '.')[split_string(words_of_line[0], '.').size()-1]);
                 if(unmapped.find(num_current_read)!=unmapped.end()){
                     //le read est non mappé
                     //on l'associe au premier read aligné qui est mappé qu'on trouve
-                    current_read_align = stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]);     //--------------------------------------------------
-                    while(words_of_line.size()>0 && unmapped.find(stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]))!=unmapped.end() && num_current_read == stoi(split_string(words_of_line[0], '.')[split_string(words_of_line[0], '.').size()-1]) && !paf.eof()){  //------------------------------
+                    current_read_align = stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]); 
+                    while(words_of_line.size()>0 && (unmapped.find(stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]))!=unmapped.end() || newly_mapped.find(stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]))!=newly_mapped.end()) && num_current_read == stoi(split_string(words_of_line[0], '.')[split_string(words_of_line[0], '.').size()-1]) && !paf.eof()){
                         getline(paf, line);
                         words_of_line = split_string(line, '\t');
-                        if(words_of_line.size()>0 && num_current_read == stoi(split_string(words_of_line[0], '.')[split_string(words_of_line[0], '.').size()-1])){  //----------------------------------------------
-                            current_read_align = stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]);   //-----------------------------------------------------------------
+                        if(words_of_line.size()>0 && num_current_read == stoi(split_string(words_of_line[0], '.')[split_string(words_of_line[0], '.').size()-1])){
+                            current_read_align = stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]);
                         }
                     }
-                    if(links.find(current_read_align)==links.end()){
-                        //le read n'était pas déjà associé à un non mappé
-                        links.insert(Int_vector(current_read_align, {num_current_read}));
+                    //si on est arrivé à la fin du bloc sans trouver un read mappé à associer à notre read mappé
+                    //càd current_read_align est non mappé malgré tous nos efforts :( alors on ne fait rien 
+                    //si current read est mappé càd il n'est ni dans unmapped ni dans newly_mapped
+                    if(unmapped.find(current_read_align)==unmapped.end() && newly_mapped.find(current_read_align)==newly_mapped.end()){
+                        if(links.find(current_read_align)==links.end()){
+                            //le read n'était pas déjà associé à un non mappé
+                            links.insert(Int_List(current_read_align, {num_current_read}));
+                        }
+                        else{
+                            //le read était déjà dans la map
+                            links[current_read_align].push_back(num_current_read);
+                        }
+                        unmapped.erase(num_current_read);
+                        newly_mapped.insert(Int_Pair(num_current_read, 0));
                     }
-                    else{
-                        //le read était déjà dans la map
-                        links[current_read_align].push_back(num_current_read);
-                    }
+                    
                 }
-                while(words_of_line.size()>0 && num_current_read == stoi(split_string(words_of_line[0], '.')[split_string(words_of_line[0], '.').size()-1]) && !paf.eof()){  //-----------------------------------------------
+                while(words_of_line.size()>0 && num_current_read == stoi(split_string(words_of_line[0], '.')[split_string(words_of_line[0], '.').size()-1]) && !paf.eof()){
                     getline(paf, line);
                     words_of_line = split_string(line, '\t');
                 }
             }
         }
     }
+    /*cout << "links ---------"<<endl;
+    for (auto& elem : links){
+        cout << "cle "+to_string(elem.first) << endl;
+        for(vector<int>::iterator it = elem.second.begin(); it!=elem.second.end(); it++){
+            cout << to_string(*it) +" ";
+        }
+        cout << "\n";
+    }
+    cout << "unmapped ----------"<<endl;
+    for (auto& elem : unmapped){
+        cout << to_string(elem.first) +" ";
+    }
+    cout << "\nnewly_mapped -------------"<<endl;
+    for (auto& elem : newly_mapped){
+        cout << to_string(elem.first) +" ";
+    }
+    cout <<"\n";*/
+
     return links;
 }
 
@@ -328,6 +354,7 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
     vector<uint32_t> read_line_pos = read_line_position(reads_file);
     int nb_reads = read_line_pos.size()/2-1;
     ankerl::unordered_dense::map<int, vector<int>> unmapped_align = link_unmapped_gz(nb_reads, gfa_file, paf_file);
+    
     vector<uint32_t> contig_line_pos = contig_line_position(gfa_file);
     int nb_contigs = contig_line_pos.size();
     int mapped=0;
