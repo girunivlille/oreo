@@ -8,6 +8,9 @@ def main():
                         help='Path of the fasta file containing the reads that have to be sorted.')
     args = parser.parse_args()
 
+    path = args.reads[0].split("/")
+    copyfile ="copie-"+path[-1]
+
     #copying the reads
     print("Copying the reads...")
     command = './copy_readsfile '+args.reads[0]
@@ -15,7 +18,7 @@ def main():
 
     #minimap2
     print("Mapping the reads...")
-    command = 'minimap2/minimap2 -x ava-pb -t16 -k28 -w15 copie-'+args.reads[0]+' copie-'+args.reads[0]+' | gzip -1 > '+args.reads[0][:-3]+'.paf.gz'
+    command = 'minimap2/minimap2 -x ava-pb -t16 -k28 -w15 '+copyfile+' '+copyfile+' | gzip -1 > '+args.reads[0][:-3]+'.paf.gz'
     os.system(command)
 
     #miniasm
@@ -31,7 +34,7 @@ def main():
 
     #removing useless files (gfa, paf.gz, reads copy)
     print("Removing temporary files...")
-    command = 'rm copie-'+args.reads[0]
+    command = 'rm '+copyfile
     os.system(command)
     command = 'rm '+args.reads[0][:-3]+'.gfa'
     os.system(command)
