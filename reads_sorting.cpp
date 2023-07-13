@@ -16,6 +16,7 @@
 using namespace std;
 
 vector<string> split_string(const string& str, char separator) {
+    //Separates the string with the separator and puts the resulting words in a vector of strings
     vector<string> result;
     istringstream iss(str);
     string word;
@@ -28,6 +29,7 @@ vector<string> split_string(const string& str, char separator) {
 }
 
 vector<uint64_t> read_line_position(const string& filename){
+    //Notes in a vector the position of each begining of line in a fasta file
     vector<uint64_t> read_line_pos={0};
     fstream file(filename, ios::in);
     if(file){
@@ -47,6 +49,7 @@ vector<uint64_t> read_line_position(const string& filename){
 }
 
 vector<uint64_t> contig_line_position(const string& gfa_file){
+    //Notes in a vector the position of the begining of each contig in a gfa file
     vector<uint64_t> contig_line_pos={0};
     fstream gfa(gfa_file, ios::in);
     if(gfa){
@@ -71,6 +74,7 @@ vector<uint64_t> contig_line_position(const string& gfa_file){
 }
 
 string get_read_sequence(const vector<uint64_t>& read_line_pos, const string& filename, uint64_t read_id){
+    //Returns in a string the 'read_id'th sequence of the fasta file
     auto pos_seq = read_line_pos[(read_id*2)+1];
     auto pos_entete_suivant = read_line_pos[(read_id*2)+2];
 
@@ -79,7 +83,6 @@ string get_read_sequence(const vector<uint64_t>& read_line_pos, const string& fi
     if(file_in){
         file_in.seekg((pos_seq+read_id*2), file_in.beg);
         file_in.read(line_seq, ((pos_entete_suivant+read_id)-(pos_seq+read_id)));
-        //line_seq[((pos_entete_suivant+read_id*2)-(pos_seq+read_id))] = 0;
         line_seq[pos_entete_suivant-pos_seq+2] = 0;
         file_in.close();
         return line_seq;
@@ -91,6 +94,7 @@ string get_read_sequence(const vector<uint64_t>& read_line_pos, const string& fi
 }
 
 string get_read_header(const vector<uint64_t>& read_line_pos, const string& filename, uint64_t read_id){
+    //Returns in a string the 'read_id'th header of the fasta file
     auto pos_seq = read_line_pos[(read_id*2)+1]+(read_id*2);
     auto pos_header = read_line_pos[(read_id)*2]+(read_id*2-1);
     if(read_id==0){
@@ -102,10 +106,8 @@ string get_read_header(const vector<uint64_t>& read_line_pos, const string& file
     if(file_in){
         file_in.seekg(pos_header, file_in.beg);
         file_in.read(line_seq, (pos_seq-pos_header));
-        //line_seq[((pos_entete_suivant+read_id*2)-(pos_seq+read_id))] = 0;
         line_seq[pos_seq-pos_header-1] = 0;
         file_in.close();
-        //cout << line_seq << endl;
         return line_seq;
     }
     else{
@@ -115,7 +117,8 @@ string get_read_header(const vector<uint64_t>& read_line_pos, const string& file
 }
 
 vector<int> order_ctgs(const string& gfa_file){
-    //parcourir le gfa et créer une map int, vector<int> (à éléments uniques) pour stocker les liens entre contigs
+    //Creates a vector containing the numbers of the contigs in the right order (depth-first search)
+    //Fills a map with the graph : some contigs are linked with one or more other contigs, the info is found in the gfa file 
     ankerl::unordered_dense::map<int, vector<int>> links;
     int nb_contigs=0;
 
@@ -132,7 +135,7 @@ vector<int> order_ctgs(const string& gfa_file){
             getline(gfa, line);
             vector<string> words_of_line = split_string(line, '\t');
             if(words_of_line.size()>0 && words_of_line[0]=="L"){
-                //récupération du couple de contigs 
+                //Retrieve the couple of contigs
                 ctg1="";
                 i=0;
                 c=words_of_line[1][i];
@@ -163,21 +166,20 @@ vector<int> order_ctgs(const string& gfa_file){
                 num_ctg2 = stoi(ctg2);
                 num_ctg2-=1;
 
-                //insertion du couple de contigs dans links (seulement si le contig2 n'est pas déjà dans la liste du ctg1 et que ctg1!=ctg2)
+                //Insert the couple in the map
                 if(num_ctg1!=num_ctg2){
                     if(links.find(num_ctg1)!=links.end()){
-                        //ctg1 est trouvé donc on insère ctg2 dans sa liste s'il n'y est pas déjà
+                        //The first contig is a key so we add the second to his list if it isn't already
                         it=links[num_ctg1].begin();
                         while(it!=links[num_ctg1].end() && *it!=num_ctg2){
                             it++;
                         }
                         if(it==links[num_ctg1].end()){
-                            //on a pas trouvé ctg2 donc on peut l'ajouter dans la liste
                             links[num_ctg1].push_back(num_ctg2);
                         }
                     }
                     else{
-                        //ctg1 n'est pas trouvé donc on le créé dans links avec ctg2 dans sa liste
+                        //The first contig isn't a key so we add it to the map with a list containing the second contig
                         links.insert(Int_vector(num_ctg1, {num_ctg2}));
                     }
                 }
@@ -187,16 +189,9 @@ vector<int> order_ctgs(const string& gfa_file){
             } 
         }
     }
-    //Affichage de la map de liens du graphe
-    /*for (auto& elem : links){
-        cout << "first "+to_string(elem.first+1) << endl;
-        for(vector<int>::iterator iter = elem.second.begin(); iter!=elem.second.end(); iter++){
-            cout << *iter+1 << endl;
-        }
-    }*/
-    //créer un vecteur<int> de la taille nb_ctgs qui dit si on a déjà classé le contig
-    //créer une pile
-    //créer un vecteur<int> qui renvoie le tri des contigs 
+    //Depth-first search :
+    //The vector seen stores a 1 if the contig is already in the order, 0 otherwise
+    //The vector order stores the resulting order of contigs
     vector<int> seen(nb_contigs, 0);
     stack<int> pilegraph;
     vector<int> order;
@@ -219,17 +214,13 @@ vector<int> order_ctgs(const string& gfa_file){
         }
     }
 
-    /*for(int i: order){
-        cout << to_string(i+1) << " ";
-    }*/
-
     return(order);
 }
 
 ankerl::unordered_dense::map<int, int> unmapped_reads_miniasm(int nb_reads, const string& gfa_file){
+    //Returns a map containing the number of the reads that are not mapped on a contig in the gfa file
     typedef pair <int, int> Int_Pair;
-    //renvoie les numéros des reads qui n'ont pas été intégrés dans le gfa, dans une map
-    
+    //The vector reads notes if a read is seen (1) or not (0)
     vector<int> reads(nb_reads, 0);
     fstream gfa(gfa_file, ios::in);
     if(gfa){
@@ -238,13 +229,13 @@ ankerl::unordered_dense::map<int, int> unmapped_reads_miniasm(int nb_reads, cons
             getline(gfa, line);
             vector<string> words_of_line = split_string(line, '\t');
             if(words_of_line.size()>0 && words_of_line[0]=="a"){
-                //words_of_line[7][2]
-                //string num_read = words_of_line[4];
+                //The line begins with an "a" so it corresponds to a read, update of the vector reads
                 string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[split_string(split_string(words_of_line[3], ':')[0], '.').size()-1]; 
                 reads[stoul(num_read)] = 1;
             }
         }
     }
+    //We browse the vector and write in a map the number of unmapped reads
     ankerl::unordered_dense::map<int, int> unmapped;
     for(int i=0; i<reads.size(); i++){
         if(reads[i]==0){
@@ -256,26 +247,32 @@ ankerl::unordered_dense::map<int, int> unmapped_reads_miniasm(int nb_reads, cons
 }
 
 ankerl::unordered_dense::map<int, vector<int>> link_unmapped_gz(int nb_reads, const string& gfa_file, const string& compressed_paf_file){
-    //renvoie une map qui lie un read mappé à un read non mappé
+    //Returns a map that links a mapped read to a vector of unmapped reads according to the alignment in the paf file
     typedef pair <int, int> Int_Pair;
     typedef pair <int, vector<int>> Int_vector;
+    //The map unmapped contains the reads that are not mapped and not associated with an other read
     ankerl::unordered_dense::map<int, int> unmapped = unmapped_reads_miniasm(nb_reads, gfa_file);
+    //The map newly_mapped contains the reads that are not mapped in the gfa file but already associated with another read
     ankerl::unordered_dense::map<int, int> newly_mapped;
+    //The map links contains the associations of mapped reads with a vector of unmapped reads
     ankerl::unordered_dense::map<int, vector<int>> links;
     int num_current_read;
     int current_read_align;
     zstr::ifstream paf(compressed_paf_file);
-    //fstream paf(compressed_paf_file, ios::in);
     if(paf){
+        //Reads the paf file containing alignments between reads
         string line;
         getline(paf, line);
         while(!paf.eof()){
+            //For each alignment, if the first read is unmapped and unassociated with an other, we look at the read aligned with it
+            //If the read aligned with it is unmapped (associated or not with an other), we associate the 2 reads and marked it in 'newly_mapped'
+            //Otherwise we take a look at other alignments until we find a mapped read to associate our unmapped read with
             vector<string> words_of_line = split_string(line, '\t');
             if(words_of_line.size()>0){
                 num_current_read = stoi(split_string(words_of_line[0], '.')[split_string(words_of_line[0], '.').size()-1]);
                 if(unmapped.find(num_current_read)!=unmapped.end()){
-                    //le read est non mappé
-                    //on l'associe au premier read aligné qui est mappé qu'on trouve
+                    //The read is unmapped and unassociated
+                    //We associate it with the first mapped read we find
                     current_read_align = stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]); 
                     while(words_of_line.size()>0 && (unmapped.find(stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]))!=unmapped.end() || newly_mapped.find(stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]))!=newly_mapped.end()) && num_current_read == stoi(split_string(words_of_line[0], '.')[split_string(words_of_line[0], '.').size()-1]) && !paf.eof()){
                         getline(paf, line);
@@ -284,17 +281,13 @@ ankerl::unordered_dense::map<int, vector<int>> link_unmapped_gz(int nb_reads, co
                             current_read_align = stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]);
                         }
                     }
-                    //si on est arrivé à la fin du bloc sans trouver un read mappé à associer à notre read mappé
-                    //càd current_read_align est non mappé malgré tous nos efforts :( alors on ne fait rien 
-                    //si current read est mappé càd il n'est ni dans unmapped ni dans newly_mapped
+                    //We reached the end of the bloc or we found a mapped read
                     if(unmapped.count(current_read_align)==0 && newly_mapped.count(current_read_align)==0){
-                    //if(unmapped.find(current_read_align)==unmapped.end() && newly_mapped.find(current_read_align)==newly_mapped.end()){
+                        //If the read is mapped, we associate the couple of reads in 'links'
                         if(links.find(current_read_align)==links.end()){
-                            //le read n'était pas déjà associé à un non mappé
                             links.insert(Int_vector(current_read_align, {num_current_read}));
                         }
                         else{
-                            //le read était déjà dans la map
                             links[current_read_align].push_back(num_current_read);
                         }
                         unmapped.erase(num_current_read);
@@ -309,23 +302,7 @@ ankerl::unordered_dense::map<int, vector<int>> link_unmapped_gz(int nb_reads, co
             }
         }
     }
-    /*cout << "links ---------"<<endl;
-    for (auto& elem : links){
-        cout << "cle "+to_string(elem.first) << endl;
-        for(vector<int>::iterator it = elem.second.begin(); it!=elem.second.end(); it++){
-            cout << to_string(*it) +" ";
-        }
-        cout << "\n";
-    }
-    cout << "unmapped ----------"<<endl;
-    for (auto& elem : unmapped){
-        cout << to_string(elem.first) +" ";
-    }
-    cout << "\nnewly_mapped -------------"<<endl;
-    for (auto& elem : newly_mapped){
-        cout << to_string(elem.first) +" ";
-    }
-    cout <<"\n";*/
+    //Writes the last reads that are not mapped in the map at the index -1
     links.insert(Int_vector(-1, {}));
     for (auto& elem : unmapped){
         links[-1].push_back(elem.first);
@@ -337,7 +314,7 @@ ankerl::unordered_dense::map<int, vector<int>> link_unmapped_gz(int nb_reads, co
 }
 
 vector<int> unincluded_ctgs(int nb_ctgs, vector<int> ctgs_order){
-    //renvoie les numéros des contigs qui n'ont pas été intégrés dans l'ordre des contigs, dans un vecteur
+    //Returns a vector containing the numbers of the contigs that are not in the contigs order (because they are not linked in the graph)
     vector<int> ctgs(nb_ctgs, 0);
     vector<int> lasting_ctgs;
 
@@ -356,7 +333,8 @@ vector<int> unincluded_ctgs(int nb_ctgs, vector<int> ctgs_order){
 }
 
 void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string& gfa_file, const string& out_file, const string& paf_file){
-    //les contigs sont triés aléatoirement et chaque read restant est inséré après le read sur lequel il a le meilleur alignement (d'après le paf)
+    //Writes a new file containing the same reads as 'reads_file', in a different order : 
+    //the reads are in the same order as they are mapped to contigs, contigs are put in a depth-first search order, and the reads that are not in any contigs are brougth together to similar reads in the contigs
     typedef pair <int, int> Int_Pair;
     vector<uint64_t> read_line_pos = read_line_position(reads_file);
     int nb_reads = read_line_pos.size()/2-1;
@@ -364,9 +342,6 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
     cout << "size unmapped_align "+to_string(unmapped_align.size())<<endl;
     
     vector<uint64_t> contig_line_pos = contig_line_position(gfa_file);
-    /*for(uint64_t i: contig_line_pos){
-        cout << i<<endl;
-    }*/
     int nb_contigs = contig_line_pos.size();
     int mapped=0;
     int non_map = 0;
@@ -383,20 +358,20 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
     fstream reads(reads_file, ios::in);
     if(gfa && out && reads){
         string line;
+        //Writes the contigs that are in the order
         for (int i: ctgs_sorted){
             gfa.clear();
             gfa.seekg(contig_line_pos[i], gfa.beg);
             getline(gfa, line);
-            //techniquement cette ligne c'est le "S" donc poubelle
+            //Line begining with "S" that is not interesting, we copy only the ones that start with "a"
             getline(gfa, line);
             vector<string> words_of_line = split_string(line, '\t');
             while(words_of_line.size()>0 && (words_of_line[0]=="a" || words_of_line[0]=="L")){
                 if(words_of_line[0]=="a"){
-                    string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[1];
-                    //string num_read = words_of_line[4];
+                    string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[split_string(split_string(words_of_line[3], ':')[0], '.').size()-1];
                     out << get_read_header(read_line_pos, reads_file, stoul(num_read))+"\n"+get_read_sequence(read_line_pos, reads_file, stoul(num_read)) << endl;
                     reads_ecrits++;
-                    //s'il y a des reads non mappés à insérer ici, on les insère
+                    //Insertion of unmapped reads linked to this read
                     if(unmapped_align.find(stoi(num_read))!=unmapped_align.end()){
                         for(vector<int>::iterator it = unmapped_align[stoi(num_read)].begin(); it!=unmapped_align[stoi(num_read)].end(); it++){
                             out << get_read_header(read_line_pos, reads_file, *it)+"\n"+get_read_sequence(read_line_pos, reads_file, *it) << endl;
@@ -404,7 +379,6 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
                             mapped++;
                         }
                         unmapped_align.erase(stoi(num_read));
-                        //unmapped_align[stoi(num_read)] = {};
                     }
                 }
                 getline(gfa, line);
@@ -412,20 +386,20 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
             }
         }
         cout << "lasting ctgs : "+to_string(lasting_ctgs.size())<<endl;
+        //Writes the contigs that are alone
         for (int i: lasting_ctgs){
             gfa.clear();
             gfa.seekg(contig_line_pos[i], gfa.beg);
             getline(gfa, line);
-            //techniquement cette ligne c'est le "S" donc poubelle
+            //Line begining with "S" that is not interesting, we copy only the ones that start with "a"
             getline(gfa, line);
             vector<string> words_of_line = split_string(line, '\t');
             while(words_of_line.size()>0 && (words_of_line[0]=="a" || words_of_line[0]=="L")){
                 if(words_of_line[0]=="a"){
-                   string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[1];
-                    //string num_read = words_of_line[4];
+                   string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[split_string(split_string(words_of_line[3], ':')[0], '.').size()-1];
                     out << get_read_header(read_line_pos, reads_file, stoul(num_read))+"\n"+get_read_sequence(read_line_pos, reads_file, stoul(num_read)) << endl;
                     reads_ecrits++;
-                    //s'il y a des reads non mappés à insérer ici, on les insère
+                    //Insertion of unmapped reads linked to this read
                     if(unmapped_align.find(stoi(num_read))!=unmapped_align.end()){
                         for(vector<int>::iterator it = unmapped_align[stoi(num_read)].begin(); it!=unmapped_align[stoi(num_read)].end(); it++){
                             out << get_read_header(read_line_pos, reads_file, *it)+"\n"+get_read_sequence(read_line_pos, reads_file, *it) << endl;
@@ -433,7 +407,6 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
                             mapped++;
                         }
                         unmapped_align.erase(stoi(num_read));
-                        //unmapped_align[stoi(num_read)] = {};
                     }
                 }
                 getline(gfa, line);
@@ -441,13 +414,7 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
             }
         }
         cout << "lasting reads : "+to_string(unmapped_align.size())<<endl;
-        /*for (auto& elem : unmapped_align){
-            for(vector<int>::iterator it = elem.second.begin(); it!=elem.second.end(); it++){
-                out << get_read_header(read_line_pos, reads_file, *it)+"\n"+get_read_sequence(read_line_pos, reads_file, *it) << endl;
-                reads_ecrits++;
-                non_map++;
-            }
-        }*/
+        //Write the reads that are still alone
         for(vector<int>::iterator it = unmapped_align[-1].begin(); it!=unmapped_align[-1].end(); it++){
             out << get_read_header(read_line_pos, reads_file, *it)+"\n"+get_read_sequence(read_line_pos, reads_file, *it) << endl;
             reads_ecrits++;
@@ -466,7 +433,7 @@ int main(int argc, char *argv[])
     string outfile;
     string paffile;
     if (argc!=5){
-        cerr << "Mauvais nombre d'arguments" << endl;
+        cerr << "Usage : ./reads_sorting [reads file] [gfa file] [out file] [paf file]" << endl;
         return EXIT_FAILURE;
     }
     else{
@@ -477,13 +444,6 @@ int main(int argc, char *argv[])
     }
 
     ctgs_and_unmapped_sorting_compressed(readsfile, gfafile, outfile, paffile);
-
-    /*for(uint64_t i = 0; i<6; i++){
-        cout<<get_read_header(read_line_position("order_cel_10kb_40X_1000.fa"), "order_cel_10kb_40X_1000.fa", i)<<endl;
-        string s = get_read_sequence(read_line_position("order_cel_10kb_40X_1000.fa"), "order_cel_10kb_40X_1000.fa", i);
-        cout<<s<<endl;
-        cout << to_string(s.size())<<endl;
-    }*/
 
     return 0;
 }
