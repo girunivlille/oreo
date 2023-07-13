@@ -14,9 +14,23 @@
 
 using namespace std;
 
+vector<string> split_string(const string& str, char separator) {
+    //Separates the string with the separator and puts the resulting words in a vector of strings
+    vector<string> result;
+    istringstream iss(str);
+    string word;
+
+    while (getline(iss, word, separator)) {
+        result.push_back(word);
+    }
+
+    return result;
+}
+
 void copy_the_file(const string& reads_file){
-    string readsfile_copy;
-    readsfile_copy = "copie-"+reads_file;
+    string readsfile_copy="";
+    vector<string> repo_files = split_string(reads_file, '/');
+    readsfile_copy = "copie-"+repo_files[repo_files.size()-1];
     fstream reads(reads_file, ios::in);
     fstream copy_file(readsfile_copy, ios::out);
     int compteur=0;
