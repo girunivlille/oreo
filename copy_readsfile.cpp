@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <list>
 #include <stack>
+#include <cstdint>
 
 using namespace std;
 
@@ -41,7 +42,7 @@ void copy_the_file(const string& reads_file){
         while(!reads.eof()){
             getline(reads, line);
             if(line.length()>0 and line[0]=='>'){
-                //la ligne est un id 
+                //la ligne est un id
                 ajout = ">."+to_string(compteur);
                 copy_file << ajout << endl;
                 compteur++;
