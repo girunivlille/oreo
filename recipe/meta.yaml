@@ -1,7 +1,7 @@
 {% set version = "0" %}
 
 package:
-    name: sort_the_reads
+    name: sortthereads
     version: {{ version }}
 
 build:
@@ -17,11 +17,14 @@ requirements:
   build:
     - make
     - {{ compiler('cxx') }}
+    - {{ compiler('c') }}
+    - gxx
     - zlib
   host:
+    - gxx
     - zlib
-    - python>=3.9.0
   run:
+    - gxx
     - zlib
     - python>=3.9.0
     - miniasm
@@ -30,6 +33,7 @@ requirements:
 test:
   commands:
     - miniasm -V
+    - minimap2 -V
 
 about:
   home: https://github.com/girunivlille/sort_the_reads
