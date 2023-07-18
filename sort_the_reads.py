@@ -11,7 +11,7 @@ def main():
     parser.add_argument('--reads', type=str, nargs=1, required=False,
                         help='Path of the fasta file containing the reads that have to be sorted.')
     parser.add_argument('-v', '--version', action='count', default=0, required=False,
-            help='Prints the used versions of minimap2, miniasm and sort_the_reads.')        
+            help='Prints the used versions of minimap2, miniasm and sort_the_reads.')
     parser.add_argument('--ctg_sort', type=int, nargs=1, required=False, default=[1],
                         help='Algorithm used to sort the contigs : 0:random order, 1:depth-first search, 2:breadth-first search. Default=1')
     parser.add_argument('--opt_minimap', type=str, nargs=1, required=False, default=["-x ava-pb -t16 -k28 -w15"],
