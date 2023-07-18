@@ -8,6 +8,7 @@
 #include <climits>
 #include <algorithm>
 #include <map>
+#include <queue>
 #include <iomanip>
 #include <stack>
 #include "unordered_dense.h"
@@ -32,6 +33,7 @@ vector<uint64_t> read_line_position(const string& filename){
     //Notes in a vector the position of each begining of line in a fasta file
     vector<uint64_t> read_line_pos={0};
     fstream file(filename, ios::in);
+    //zstr::ifstream file(filename, ios::in);
     if(file){
         string line;
         uint64_t total_count = 0;
@@ -78,6 +80,7 @@ string get_read_sequence(const vector<uint64_t>& read_line_pos, const string& fi
     auto pos_seq = read_line_pos[(read_id*2)+1];
     auto pos_entete_suivant = read_line_pos[(read_id*2)+2];
 
+    //zstr::ifstream file_in(filename, ios::in);
     fstream file_in(filename, ios::in);
     char line_seq[100000];
     if(file_in){
@@ -102,6 +105,7 @@ string get_read_header(const vector<uint64_t>& read_line_pos, const string& file
         pos_seq=read_line_pos[1];
     }
     fstream file_in(filename, ios::in);
+    //zstr::ifstream file_in(filename, ios::in);
     char line_seq[100000];
     if(file_in){
         file_in.seekg(pos_header, file_in.beg);
@@ -116,8 +120,11 @@ string get_read_header(const vector<uint64_t>& read_line_pos, const string& file
     return "";
 }
 
-vector<int> order_ctgs(const string& gfa_file){
-    //Creates a vector containing the numbers of the contigs in the right order (depth-first search)
+vector<int> order_ctgs(const string& gfa_file, int algo){
+    //Creates a vector containing the numbers of the contigs in the right order (depth-first search if algo=1, breadth-first search if algo=2)
+    if(algo!=1 && algo!=2){
+        cerr << "Wrong algorithm number (order_ctgs). Must be 1 or 2" << endl;
+    }
     //Fills a map with the graph : some contigs are linked with one or more other contigs, the info is found in the gfa file 
     ankerl::unordered_dense::map<int, vector<int>> links;
     int nb_contigs=0;
@@ -192,22 +199,45 @@ vector<int> order_ctgs(const string& gfa_file){
     //Depth-first search :
     //The vector seen stores a 1 if the contig is already in the order, 0 otherwise
     //The vector order stores the resulting order of contigs
-    vector<int> seen(nb_contigs, 0);
-    stack<int> pilegraph;
     vector<int> order;
+    vector<int> seen(nb_contigs, 0);
+    if(algo==1){
+        stack<int> pilegraph;
 
-    for (auto& elem : links){
-        if(seen[elem.first]==0){
-            seen[elem.first]=1;
-            pilegraph.push(elem.first);
-            while(!pilegraph.empty()){
-                num_ctg2 = pilegraph.top();
-                order.push_back(num_ctg2);
-                pilegraph.pop();
-                for(vector<int>::iterator ite = links[num_ctg2].begin(); ite!=links[num_ctg2].end(); ite++){
-                    if(seen[*ite]==0){
-                        seen[*ite]=1;
-                        pilegraph.push(*ite);
+        for (auto& elem : links){
+            if(seen[elem.first]==0){
+                seen[elem.first]=1;
+                pilegraph.push(elem.first);
+                while(!pilegraph.empty()){
+                    num_ctg2 = pilegraph.top();
+                    order.push_back(num_ctg2);
+                    pilegraph.pop();
+                    for(vector<int>::iterator ite = links[num_ctg2].begin(); ite!=links[num_ctg2].end(); ite++){
+                        if(seen[*ite]==0){
+                            seen[*ite]=1;
+                            pilegraph.push(*ite);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else{
+        queue<int> pilegraph;
+
+        for (auto& elem : links){
+            if(seen[elem.first]==0){
+                seen[elem.first]=1;
+                pilegraph.push(elem.first);
+                while(!pilegraph.empty()){
+                    num_ctg2 = pilegraph.front();
+                    order.push_back(num_ctg2);
+                    pilegraph.pop();
+                    for(vector<int>::iterator ite = links[num_ctg2].begin(); ite!=links[num_ctg2].end(); ite++){
+                        if(seen[*ite]==0){
+                            seen[*ite]=1;
+                            pilegraph.push(*ite);
+                        }
                     }
                 }
             }
@@ -332,7 +362,19 @@ vector<int> unincluded_ctgs(int nb_ctgs, vector<int> ctgs_order){
     return(lasting_ctgs);
 }
 
-void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string& gfa_file, const string& out_file, const string& paf_file){
+vector<int> shuffle_vector(vector<int> vector_to_shuffle){
+    srand((unsigned) time(NULL));
+    int index=0;
+    for(int i = 0; i<vector_to_shuffle.size(); i++){
+        index=rand()%vector_to_shuffle.size();
+        int tmp = vector_to_shuffle[index];
+        vector_to_shuffle[index]=vector_to_shuffle[i];
+        vector_to_shuffle[i] = tmp;
+    }
+    return(vector_to_shuffle);
+}
+
+void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string& gfa_file, const string& out_file, const string& paf_file, int ctgs_sort){
     //Writes a new file containing the same reads as 'reads_file', in a different order : 
     //the reads are in the same order as they are mapped to contigs, contigs are put in a depth-first search order, and the reads that are not in any contigs are brougth together to similar reads in the contigs
     typedef pair <int, int> Int_Pair;
@@ -350,11 +392,26 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
     for(int i=0; i<nb_contigs; i++){
         ctgs[i]=i;
     }
-    vector<int> ctgs_sorted = order_ctgs(gfa_file);
+    //Ordering the contigs with the chosen algorithm (in ctgs_sort)
+    vector<int> ctgs_sorted;
+    if(ctgs_sort==0){
+        //Random
+        ctgs_sorted = shuffle_vector(ctgs);
+    }
+    else if(ctgs_sort==1){
+        //depth-first
+        ctgs_sorted = order_ctgs(gfa_file, 1);
+    }
+    else{
+        //breadth-first
+        ctgs_sorted = order_ctgs(gfa_file, 2);
+    }
+    
     cout << "number of contigs : "+to_string(nb_contigs) << endl;
     vector<int> lasting_ctgs = unincluded_ctgs(nb_contigs, ctgs_sorted);
     fstream gfa(gfa_file, ios::in);
     fstream out(out_file, ios::out);
+    //zstr::ifstream reads(reads_file, ios::in);
     fstream reads(reads_file, ios::in);
     if(gfa && out && reads){
         string line;
@@ -368,7 +425,7 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
             vector<string> words_of_line = split_string(line, '\t');
             while(words_of_line.size()>0 && (words_of_line[0]=="a" || words_of_line[0]=="L")){
                 if(words_of_line[0]=="a"){
-                    string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[split_string(split_string(words_of_line[3], ':')[0], '.').size()-1];
+                    string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[1];
                     out << get_read_header(read_line_pos, reads_file, stoul(num_read))+"\n"+get_read_sequence(read_line_pos, reads_file, stoul(num_read)) << endl;
                     reads_ecrits++;
                     //Insertion of unmapped reads linked to this read
@@ -396,7 +453,7 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
             vector<string> words_of_line = split_string(line, '\t');
             while(words_of_line.size()>0 && (words_of_line[0]=="a" || words_of_line[0]=="L")){
                 if(words_of_line[0]=="a"){
-                   string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[split_string(split_string(words_of_line[3], ':')[0], '.').size()-1];
+                   string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[1];
                     out << get_read_header(read_line_pos, reads_file, stoul(num_read))+"\n"+get_read_sequence(read_line_pos, reads_file, stoul(num_read)) << endl;
                     reads_ecrits++;
                     //Insertion of unmapped reads linked to this read
@@ -432,8 +489,9 @@ int main(int argc, char *argv[])
     string gfafile;
     string outfile;
     string paffile;
-    if (argc!=5){
-        cerr << "Usage : ./reads_sorting [reads file] [gfa file] [out file] [paf file]" << endl;
+    int ctgs_sort=1;
+    if (argc<5){
+        cerr << "Usage : ./reads_sorting [READS FILE] [GFA FILE] [OUT FILE] [PAF FILE] [ctgs sorting algo]" << endl;
         return EXIT_FAILURE;
     }
     else{
@@ -441,9 +499,13 @@ int main(int argc, char *argv[])
         gfafile = argv[2];
         outfile = argv[3];
         paffile = argv[4];
+        if(argc==6){
+            //Option : ctgs sort 0:random order, 1:depth-first search, 2:breadth-first search. Default=1
+            ctgs_sort = stoi(argv[5]);
+        }
     }
 
-    ctgs_and_unmapped_sorting_compressed(readsfile, gfafile, outfile, paffile);
+    ctgs_and_unmapped_sorting_compressed(readsfile, gfafile, outfile, paffile, ctgs_sort);
 
     return 0;
 }
