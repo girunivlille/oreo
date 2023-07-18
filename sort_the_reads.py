@@ -37,18 +37,18 @@ def main():
             #copying the reads
             print("Copying the reads...")
             command = './copy_readsfile '+args.reads[0]
-            #os.system(command)
+            os.system(command)
 
             #minimap2
             print("Mapping the reads...")
             command = 'minimap2/minimap2 '+args.opt_minimap[0]+' '+copyfile+' '+copyfile+' | gzip -1 > '+args.reads[0][:-3]+'.paf.gz'
-            #os.system(command)
+            os.system(command)
 
             #miniasm
             print("Building contigs...")
             #command = 'miniasm/miniasm '+args.opt_miniasm[0]+' -f '+args.reads[0]+' '+args.reads[0][:-3]+'.paf.gz > '+args.reads[0][:-3]+'.gfa'
             command = 'miniasm/miniasm '+args.opt_miniasm[0]+' -f '+copyfile+' '+args.reads[0][:-3]+'.paf.gz > '+args.reads[0][:-3]+'.gfa'
-            #os.system(command)
+            os.system(command)
 
             #reads sorting
             print("Sorting the reads...")
@@ -58,12 +58,12 @@ def main():
 
             #removing useless files (gfa, paf.gz, reads copy)
             print("Removing temporary files...")
-            #command = 'rm '+copyfile
-            #os.system(command)
-            #command = 'rm '+args.reads[0][:-3]+'.gfa'
-            #os.system(command)
-            #command = 'rm '+args.reads[0][:-3]+'.paf.gz'
-            #os.system(command)
+            command = 'rm '+copyfile
+            os.system(command)
+            command = 'rm '+args.reads[0][:-3]+'.gfa'
+            os.system(command)
+            command = 'rm '+args.reads[0][:-3]+'.paf.gz'
+            os.system(command)
         else:
             os.system("python3 sort_the_reads.py -h")
             print("Please fill the --reads argument.")
