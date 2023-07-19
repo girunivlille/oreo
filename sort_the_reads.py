@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import os
 import sys
 import argparse
@@ -19,65 +21,69 @@ def main():
                         help='String containing all options to run miniasm. Default=-I1 -F1')
     args = parser.parse_args()
 
+    script_file = os.path.abspath(sys.argv[0])
+    script_dir = os.path.dirname(script_file)
+    minimap2_file = os.path.join(script_dir,'minimap2','minimap2')
+    miniasm_file = os.path.join(script_dir,'miniasm','miniasm')
+    copy_readsfile_file = os.path.join(script_dir,'copy_readsfile')
+    reads_sorting_file = os.path.join(script_dir,'reads_sorting')
+
     if len(sys.argv)==1:
-        os.system("python3 sort_the_reads.py -h")
+        parser.print_help()
     else:
         if args.version>0:
             #afficher les versions de minimap2, miniasm, sort_the_reads
             print("Minimap2 version :")
-            os.system("minimap2/minimap2 --version")
+            os.system(minimap2_file + " --version")
             print("Miniasm version :")
-            os.system("miniasm/miniasm -V")
+            os.system(miniasm_file + " -V")
             print("Sort_the_reads version:")
             print(str_version)
         else:
             if(args.reads!=None):
-                if args.ctg_sort[0]==0 or args.ctg_sort[0]==1 or args.ctg_sort[0]==2:
+                if args.ctg_sort[0] in [0,1,2]:
                     #retrieve the folder from where the file is executed
-                    path = args.reads[0].split("/")
-                    position = sys.argv[0].split("/")
-                    if len(position)==1:
-                        folder ="./"
-                    else:
-                        folder=position[0]
-                        for i in range(1, len(position)-1):
-                            folder=os.path.join(folder, position[i])
-                    copyfile ="copie-"+path[-1]
+                    reads_file = os.path.abspath(args.reads[0])
+                    readscopy_file = os.path.join(os.path.dirname(reads_file),"copie-"+os.path.basename(reads_file))
+                    paf_file = os.path.splitext(reads_file)[0] + '.paf.gz'
+                    gfa_file = os.path.splitext(reads_file)[0] + '.gfa'
+                    reads_sorted_file = os.path.splitext(reads_file)[0] + '_sorted' + os.path.splitext(reads_file)[1]
 
                     #copying the reads
                     print("Copying the reads...")
-                    command = os.path.join(folder,'copy_readsfile')+' '+args.reads[0]
+                    command = copy_readsfile_file + ' ' + reads_file + ' ' + readscopy_file
+
                     os.system(command)
 
                     #minimap2
                     print("Mapping the reads...")
-                    command = os.path.join(folder, 'minimap2', 'minimap2')+' '+args.opt_minimap[0]+' '+copyfile+' '+copyfile+' | gzip -1 > '+args.reads[0][:-3]+'.paf.gz'
+                    command = minimap2_file+' '+args.opt_minimap[0]+' '+readscopy_file+' '+readscopy_file+' | gzip -1 > '+paf_file
                     os.system(command)
 
                     #miniasm
                     print("Building contigs...")
                     #command = 'miniasm/miniasm '+args.opt_miniasm[0]+' -f '+args.reads[0]+' '+args.reads[0][:-3]+'.paf.gz > '+args.reads[0][:-3]+'.gfa'
-                    command = os.path.join(folder, 'miniasm', 'miniasm')+' '+args.opt_miniasm[0]+' -f '+copyfile+' '+args.reads[0][:-3]+'.paf.gz > '+args.reads[0][:-3]+'.gfa'
+                    command = miniasm_file+' '+args.opt_miniasm[0]+' -f '+readscopy_file+' '+paf_file+' > '+gfa_file
                     os.system(command)
 
                     #reads sorting
                     print("Sorting the reads...")
-                    command = os.path.join(folder, 'reads_sorting')+' '+args.reads[0]+' '+args.reads[0][:-3]+'.gfa '+args.reads[0][:-3]+'_sorted.fa '+args.reads[0][:-3]+'.paf.gz '+str(args.ctg_sort[0])
+                    command = reads_sorting_file + ' ' + reads_file + ' ' + gfa_file + ' ' + reads_sorted_file + ' ' + paf_file + ' ' + str(args.ctg_sort[0])
                     os.system(command)
-                    print("Sorted reads saved in "+args.reads[0][:-3]+"_sorted.fa.")
+                    print("Sorted reads saved in "+reads_sorted_file)
 
                     #removing useless files (gfa, paf.gz, reads copy)
                     print("Removing temporary files...")
-                    command = 'rm '+copyfile
+                    command = 'rm '+readscopy_file
                     os.system(command)
-                    command = 'rm '+args.reads[0][:-3]+'.gfa'
+                    command = 'rm '+gfa_file
                     os.system(command)
-                    command = 'rm '+args.reads[0][:-3]+'.paf.gz'
+                    command = 'rm '+paf_file
                     os.system(command)
                 else:
                     print("Wrong number for --ctg_sort. Please write 0, 1 or 2.")
             else:
-                os.system("python3 sort_the_reads.py -h")
+                parser.print_help()
                 print("Please fill the --reads argument.")
 
 if __name__ == '__main__':

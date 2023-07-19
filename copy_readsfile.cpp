@@ -28,17 +28,16 @@ vector<string> split_string(const string& str, char separator) {
     return result;
 }
 
-void copy_the_file(const string& reads_file){
-    string readsfile_copy="";
+void copy_the_file(const string& reads_file,const string& readsfile_copy){
+    // string readsfile_copy="";
     vector<string> repo_files = split_string(reads_file, '/');
-    readsfile_copy = "copie-"+repo_files[repo_files.size()-1];
+    // readsfile_copy = "copie-"+repo_files[repo_files.size()-1];
     fstream reads(reads_file, ios::in);
     fstream copy_file(readsfile_copy, ios::out);
     int compteur=0;
     string ajout;
     if(reads && copy_file){
         string line;
-        uint32_t total_count = 0;
         while(!reads.eof()){
             getline(reads, line);
             if(line.length()>0 and line[0]=='>'){
@@ -65,14 +64,16 @@ void copy_the_file(const string& reads_file){
 int main(int argc, char *argv[])
 {
     string readsfile;
-    if (argc!=2){
+    string readsfile_copy;
+    if (argc!=3){
         cerr << "Mauvais nombre d'arguments" << endl;
         return EXIT_FAILURE;
     }
     else{
         readsfile = argv[1];
+        readsfile_copy = argv[2];
     }
 
-    copy_the_file(readsfile);
+    copy_the_file(readsfile,readsfile_copy);
     return 0;
 }
