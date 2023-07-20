@@ -4,10 +4,10 @@ import os
 import sys
 import argparse
 
-str_version = 1.0
+oreo_version = 1.0
 
 def main():
-    parser = argparse.ArgumentParser(description='Returns a new file containing the sorted reads.')
+    parser = argparse.ArgumentParser(description='OReO : Returns a new file containing the sorted reads.')
 
     parser.add_argument('--reads', type=str, nargs=1, required=False,
                         help='Path of the fasta file containing the reads that have to be sorted.')
@@ -40,7 +40,7 @@ def main():
             print("Miniasm version :")
             os.system(miniasm_file + " -V")
             print("Sort_the_reads version:")
-            print(str_version)
+            print(oreo_version)
         else:
             if(args.reads!=None):
                 if args.ctg_sort[0] in [0,1,2]:
