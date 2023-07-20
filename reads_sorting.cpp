@@ -337,9 +337,6 @@ ankerl::unordered_dense::map<int, vector<int>> link_unmapped_gz(int nb_reads, co
     for (auto& elem : unmapped){
         links[-1].push_back(elem.first);
     }
-    cout << "nb unmapped "+to_string(unmapped.size())<<endl;
-    cout << "newly mapped "+to_string(newly_mapped.size()) << endl;
-
     return links;
 }
 
@@ -381,7 +378,6 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
     vector<uint64_t> read_line_pos = read_line_position(reads_file);
     int nb_reads = read_line_pos.size()/2-1;
     ankerl::unordered_dense::map<int, vector<int>> unmapped_align = link_unmapped_gz(nb_reads, gfa_file, paf_file);
-    cout << "size unmapped_align "+to_string(unmapped_align.size())<<endl;
     
     vector<uint64_t> contig_line_pos = contig_line_position(gfa_file);
     int nb_contigs = contig_line_pos.size();
@@ -442,7 +438,6 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
                 words_of_line = split_string(line, '\t');
             }
         }
-        cout << "lasting ctgs : "+to_string(lasting_ctgs.size())<<endl;
         //Writes the contigs that are alone
         for (int i: lasting_ctgs){
             gfa.clear();
@@ -470,7 +465,7 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
                 words_of_line = split_string(line, '\t'); 
             }
         }
-        cout << "lasting reads : "+to_string(unmapped_align.size())<<endl;
+        
         //Write the reads that are still alone
         for(vector<int>::iterator it = unmapped_align[-1].begin(); it!=unmapped_align[-1].end(); it++){
             out << get_read_header(read_line_pos, reads_file, *it)+"\n"+get_read_sequence(read_line_pos, reads_file, *it) << endl;
