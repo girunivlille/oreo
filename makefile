@@ -4,7 +4,7 @@
 
 EXEC = copy_readsfile reads_sorting
 OBJETS = 
-NOM_PROJET = sort_the_reads
+NOM_PROJET = oreo
 
 #
 # SUFFIXES (ne pas modifier)
