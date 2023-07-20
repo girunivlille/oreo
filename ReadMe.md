@@ -19,5 +19,5 @@ make
 --reads : Fasta file containing the reads to sort
 
 <code>
-python3 sort_the_reads.py --reads readsfile.fa
+python3 oreo.py --reads readsfile.fa [OPTIONS]
 </code>
