@@ -2,7 +2,7 @@
 Sorting reads to bring k-mers closer
 ## Compilation
 
-git clone --recurse-submodules https://github.com/girunivlille/sort_the_reads
+git clone --recurse-submodules https://github.com/girunivlille/oreo
 
 cd minimap2 && make
 
