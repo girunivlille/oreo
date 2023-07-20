@@ -1,4 +1,5 @@
-# Sorting reads to bring k-mers closer
+# OReO - Optimized Read Order
+Sorting reads to bring k-mers closer
 ## Compilation
 
 git clone --recurse-submodules https://github.com/girunivlille/sort_the_reads
