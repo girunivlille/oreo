@@ -19,6 +19,8 @@ def main():
                         help='String containing all options to run minimap2. Default=-x ava-pb -t16 -k28 -w15')
     parser.add_argument('--opt_miniasm', type=str, nargs=1, required=False, default=["-I1 -F1"],
                         help='String containing all options to run miniasm. Default=-I1 -F1')
+    parser.add_argument('-t', '--memtime', action='count', default=0, required=False,
+                        help='Creates files with time and memory summary (suffix _memtime).')
     args = parser.parse_args()
 
     script_file = os.path.abspath(sys.argv[0])
@@ -45,6 +47,9 @@ def main():
                     #retrieve the folder from where the file is executed
                     reads_file = os.path.abspath(args.reads[0])
                     readscopy_file = os.path.join(os.path.dirname(reads_file),"copie-"+os.path.basename(reads_file))
+                    minimap_benchmark = os.path.splitext(reads_file)[0]+'_minimap_memtime.txt'
+                    miniasm_benchmark = os.path.splitext(reads_file)[0]+'_miniasm_memtime.txt'
+                    sorting_benchmark = os.path.splitext(reads_file)[0]+'_sort_memtime.txt'
                     paf_file = os.path.splitext(reads_file)[0] + '.paf.gz'
                     gfa_file = os.path.splitext(reads_file)[0] + '.gfa'
                     reads_sorted_file = os.path.splitext(reads_file)[0] + '_sorted' + os.path.splitext(reads_file)[1]
@@ -57,18 +62,27 @@ def main():
 
                     #minimap2
                     print("Mapping the reads...")
-                    command = minimap2_file+' '+args.opt_minimap[0]+' '+readscopy_file+' '+readscopy_file+' | gzip -1 > '+paf_file
+                    if args.memtime>0:
+                        command = '/usr/bin/time -v '+minimap2_file+' '+args.opt_minimap[0]+' '+readscopy_file+' '+readscopy_file+' 2> '+minimap_benchmark+' | gzip -1 > '+paf_file
+                    else:
+                        command = minimap2_file+' '+args.opt_minimap[0]+' '+readscopy_file+' '+readscopy_file+' | gzip -1 > '+paf_file
                     os.system(command)
 
                     #miniasm
                     print("Building contigs...")
                     #command = 'miniasm/miniasm '+args.opt_miniasm[0]+' -f '+args.reads[0]+' '+args.reads[0][:-3]+'.paf.gz > '+args.reads[0][:-3]+'.gfa'
-                    command = miniasm_file+' '+args.opt_miniasm[0]+' -f '+readscopy_file+' '+paf_file+' > '+gfa_file
+                    if args.memtime>0:
+                        command = '/usr/bin/time -v '+miniasm_file+' '+args.opt_miniasm[0]+' -f '+readscopy_file+' '+paf_file+' > '+gfa_file+' 2> '+miniasm_benchmark
+                    else:
+                        command = miniasm_file+' '+args.opt_miniasm[0]+' -f '+readscopy_file+' '+paf_file+' > '+gfa_file
                     os.system(command)
 
                     #reads sorting
                     print("Sorting the reads...")
-                    command = reads_sorting_file + ' ' + reads_file + ' ' + gfa_file + ' ' + reads_sorted_file + ' ' + paf_file + ' ' + str(args.ctg_sort[0])
+                    if args.memtime>0:
+                        command = '/usr/bin/time -v '+reads_sorting_file + ' ' + reads_file + ' ' + gfa_file + ' ' + reads_sorted_file + ' ' + paf_file + ' ' + str(args.ctg_sort[0])+' 2> '+sorting_benchmark
+                    else:
+                        command = reads_sorting_file + ' ' + reads_file + ' ' + gfa_file + ' ' + reads_sorted_file + ' ' + paf_file + ' ' + str(args.ctg_sort[0])
                     os.system(command)
                     print("Sorted reads saved in "+reads_sorted_file)
 
