@@ -29,6 +29,7 @@ def main():
     miniasm_file = os.path.join(script_dir,'miniasm','miniasm')
     copy_readsfile_file = os.path.join(script_dir,'copy_readsfile')
     reads_sorting_file = os.path.join(script_dir,'reads_sorting')
+    log_to_plot_file = os.path.join(script_dir,'log_to_plot.py')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -52,6 +53,8 @@ def main():
                     sorting_benchmark = os.path.splitext(reads_file)[0]+'_sort_memtime.txt'
                     paf_file = os.path.splitext(reads_file)[0] + '.paf.gz'
                     gfa_file = os.path.splitext(reads_file)[0] + '.gfa'
+                    log_file = os.path.splitext(reads_file)[0] + '_oreo_log.txt'
+                    pie_file = os.path.splitext(reads_file)[0] + '_map_reads_pie.png'
                     reads_sorted_file = os.path.splitext(reads_file)[0] + '_sorted' + os.path.splitext(reads_file)[1]
 
                     #copying the reads
@@ -80,19 +83,23 @@ def main():
                     #reads sorting
                     print("Sorting the reads...")
                     if args.memtime>0:
-                        command = '/usr/bin/time -v '+reads_sorting_file + ' ' + reads_file + ' ' + gfa_file + ' ' + reads_sorted_file + ' ' + paf_file + ' ' + str(args.ctg_sort[0])+' 2> '+sorting_benchmark
+                        command = '/usr/bin/time -v '+reads_sorting_file + ' ' + reads_file + ' ' + gfa_file + ' ' + reads_sorted_file + ' ' + paf_file + ' ' + log_file + ' ' + str(args.ctg_sort[0])+' 2> '+sorting_benchmark
                     else:
-                        command = reads_sorting_file + ' ' + reads_file + ' ' + gfa_file + ' ' + reads_sorted_file + ' ' + paf_file + ' ' + str(args.ctg_sort[0])
+                        command = reads_sorting_file + ' ' + reads_file + ' ' + gfa_file + ' ' + reads_sorted_file + ' ' + paf_file + ' ' + log_file + ' ' + str(args.ctg_sort[0])
                     os.system(command)
                     print("Sorted reads saved in "+reads_sorted_file)
 
                     #removing useless files (gfa, paf.gz, reads copy)
-                    print("Removing temporary files...")
+                    """print("Removing temporary files...")
                     command = 'rm '+readscopy_file
                     os.system(command)
                     command = 'rm '+gfa_file
                     os.system(command)
                     command = 'rm '+paf_file
+                    os.system(command)"""
+
+                    # Plot infos in the log file
+                    command = "python3 " + log_to_plot_file + " " + log_file + " " + pie_file
                     os.system(command)
                 else:
                     print("Wrong number for --ctg_sort. Please write 0, 1 or 2.")

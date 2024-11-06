@@ -82,7 +82,7 @@ string get_read_sequence(const vector<uint64_t>& read_line_pos, const string& fi
 
     //zstr::ifstream file_in(filename, ios::in);
     fstream file_in(filename, ios::in);
-    char line_seq[100000];
+    char line_seq[500000];
     if(file_in){
         file_in.seekg((pos_seq+read_id*2), file_in.beg);
         file_in.read(line_seq, ((pos_entete_suivant+read_id)-(pos_seq+read_id)));
@@ -106,7 +106,7 @@ string get_read_header(const vector<uint64_t>& read_line_pos, const string& file
     }
     fstream file_in(filename, ios::in);
     //zstr::ifstream file_in(filename, ios::in);
-    char line_seq[100000];
+    char line_seq[500000];
     if(file_in){
         file_in.seekg(pos_header, file_in.beg);
         file_in.read(line_seq, (pos_seq-pos_header));
@@ -247,7 +247,7 @@ vector<int> order_ctgs(const string& gfa_file, int algo){
     return(order);
 }
 
-ankerl::unordered_dense::map<int, int> unmapped_reads_miniasm(int nb_reads, const string& gfa_file){
+ankerl::unordered_dense::map<int, int> unmapped_reads_miniasm(int nb_reads, const string& gfa_file, const string& log_file){
     //Returns a map containing the number of the reads that are not mapped on a contig in the gfa file
     typedef pair <int, int> Int_Pair;
     //The vector reads notes if a read is seen (1) or not (0)
@@ -272,16 +272,18 @@ ankerl::unordered_dense::map<int, int> unmapped_reads_miniasm(int nb_reads, cons
             unmapped.insert(Int_Pair(i, 0));
         }
     }
+    fstream log(log_file, ios::out | ios::app);
+    log << "reads non mappés : "+ to_string(unmapped.size()) << endl;
     cout << "reads non mappés : "+ to_string(unmapped.size()) << endl;
     return(unmapped);
 }
 
-ankerl::unordered_dense::map<int, vector<int>> link_unmapped_gz(int nb_reads, const string& gfa_file, const string& compressed_paf_file){
+ankerl::unordered_dense::map<int, vector<int>> link_unmapped_gz(int nb_reads, const string& gfa_file, const string& compressed_paf_file, const string& log_file){
     //Returns a map that links a mapped read to a vector of unmapped reads according to the alignment in the paf file
     typedef pair <int, int> Int_Pair;
     typedef pair <int, vector<int>> Int_vector;
     //The map unmapped contains the reads that are not mapped and not associated with an other read
-    ankerl::unordered_dense::map<int, int> unmapped = unmapped_reads_miniasm(nb_reads, gfa_file);
+    ankerl::unordered_dense::map<int, int> unmapped = unmapped_reads_miniasm(nb_reads, gfa_file, log_file);
     //The map newly_mapped contains the reads that are not mapped in the gfa file but already associated with another read
     ankerl::unordered_dense::map<int, int> newly_mapped;
     //The map links contains the associations of mapped reads with a vector of unmapped reads
@@ -371,13 +373,13 @@ vector<int> shuffle_vector(vector<int> vector_to_shuffle){
     return(vector_to_shuffle);
 }
 
-void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string& gfa_file, const string& out_file, const string& paf_file, int ctgs_sort){
+void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string& gfa_file, const string& out_file, const string& paf_file, const string& log_file, int ctgs_sort){
     //Writes a new file containing the same reads as 'reads_file', in a different order : 
     //the reads are in the same order as they are mapped to contigs, contigs are put in a depth-first search order, and the reads that are not in any contigs are brougth together to similar reads in the contigs
     typedef pair <int, int> Int_Pair;
     vector<uint64_t> read_line_pos = read_line_position(reads_file);
     int nb_reads = read_line_pos.size()/2-1;
-    ankerl::unordered_dense::map<int, vector<int>> unmapped_align = link_unmapped_gz(nb_reads, gfa_file, paf_file);
+    ankerl::unordered_dense::map<int, vector<int>> unmapped_align = link_unmapped_gz(nb_reads, gfa_file, paf_file, log_file);
     
     vector<uint64_t> contig_line_pos = contig_line_position(gfa_file);
     int nb_contigs = contig_line_pos.size();
@@ -402,7 +404,6 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
         //breadth-first
         ctgs_sorted = order_ctgs(gfa_file, 2);
     }
-    
     cout << "number of contigs : "+to_string(nb_contigs) << endl;
     vector<int> lasting_ctgs = unincluded_ctgs(nb_contigs, ctgs_sorted);
     fstream gfa(gfa_file, ios::in);
@@ -448,7 +449,7 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
             vector<string> words_of_line = split_string(line, '\t');
             while(words_of_line.size()>0 && (words_of_line[0]=="a" || words_of_line[0]=="L")){
                 if(words_of_line[0]=="a"){
-                   string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[1];
+                    string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[1];
                     out << get_read_header(read_line_pos, reads_file, stoul(num_read))+"\n"+get_read_sequence(read_line_pos, reads_file, stoul(num_read)) << endl;
                     reads_ecrits++;
                     //Insertion of unmapped reads linked to this read
@@ -465,13 +466,17 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
                 words_of_line = split_string(line, '\t'); 
             }
         }
-        
         //Write the reads that are still alone
         for(vector<int>::iterator it = unmapped_align[-1].begin(); it!=unmapped_align[-1].end(); it++){
             out << get_read_header(read_line_pos, reads_file, *it)+"\n"+get_read_sequence(read_line_pos, reads_file, *it) << endl;
             reads_ecrits++;
             non_map++;
         }
+        fstream log(log_file, ios::out | ios::app);
+        log << "reads mappés par la fonction : "+to_string(mapped) << endl;
+        log << "reads toujours non mappés : "+to_string(non_map) << endl;
+        log << "reads ecrits : "+to_string(reads_ecrits)<<endl;
+
         cout << "reads mappés par la fonction : "+to_string(mapped) << endl;
         cout << "reads toujours non mappés : "+to_string(non_map) << endl;
         cout << "reads ecrits : "+to_string(reads_ecrits)<<endl;
@@ -484,9 +489,10 @@ int main(int argc, char *argv[])
     string gfafile;
     string outfile;
     string paffile;
+    string logfile;
     int ctgs_sort=1;
-    if (argc<5){
-        cerr << "Usage : ./reads_sorting [READS FILE] [GFA FILE] [OUT FILE] [PAF FILE] [ctgs sorting algo]" << endl;
+    if (argc<6){
+        cerr << "Usage : ./reads_sorting [READS FILE] [GFA FILE] [OUT FILE] [PAF FILE] [LOG FILE] [ctgs sorting algo]" << endl;
         return EXIT_FAILURE;
     }
     else{
@@ -494,13 +500,14 @@ int main(int argc, char *argv[])
         gfafile = argv[2];
         outfile = argv[3];
         paffile = argv[4];
-        if(argc==6){
+        logfile = argv[5];
+        if(argc==7){
             //Option : ctgs sort 0:random order, 1:depth-first search, 2:breadth-first search. Default=1
-            ctgs_sort = stoi(argv[5]);
+            ctgs_sort = stoi(argv[6]);
         }
     }
 
-    ctgs_and_unmapped_sorting_compressed(readsfile, gfafile, outfile, paffile, ctgs_sort);
+    ctgs_and_unmapped_sorting_compressed(readsfile, gfafile, outfile, paffile, logfile, ctgs_sort);
 
     return 0;
 }
