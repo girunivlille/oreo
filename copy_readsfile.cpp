@@ -42,7 +42,7 @@ void copy_the_file(const string& reads_file,const string& readsfile_copy){
             getline(reads, line);
             if(line.length()>0 and line[0]=='>'){
                 //la ligne est un id
-                ajout = ">."+to_string(compteur);
+                ajout = ">"+to_string(compteur);
                 copy_file << ajout << endl;
                 compteur++;
             }
@@ -77,3 +77,4 @@ int main(int argc, char *argv[])
     copy_the_file(readsfile,readsfile_copy);
     return 0;
 }
+

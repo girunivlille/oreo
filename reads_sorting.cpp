@@ -11,6 +11,8 @@
 #include <queue>
 #include <iomanip>
 #include <stack>
+#include <regex>
+#include <algorithm>
 #include "unordered_dense.h"
 #include "zstr/src/zstr.hpp"
 
@@ -29,6 +31,25 @@ vector<string> split_string(const string& str, char separator) {
     return result;
 }
 
+string reverse_complement(const string& sequence){
+    string result;
+
+    for (auto it = sequence.rbegin(); it != sequence.rend(); ++it) {
+        switch (*it) {
+            case 'A': result += 'T'; break;
+            case 'T': result += 'A'; break;
+            case 'C': result += 'G'; break;
+            case 'G': result += 'C'; break;
+            case 'a': result += 't'; break;
+            case 't': result += 'a'; break;
+            case 'c': result += 'g'; break;
+            case 'g': result += 'c'; break;
+            default: result += *it; break;
+        }
+    }
+    return result;
+}
+
 vector<uint64_t> read_line_position(const string& filename){
     //Notes in a vector the position of each begining of line in a fasta file
     vector<uint64_t> read_line_pos={0};
@@ -39,9 +60,12 @@ vector<uint64_t> read_line_position(const string& filename){
         uint64_t total_count = 0;
         while(!file.eof()){
             getline(file, line);
-            total_count += line.length();
-            read_line_pos.push_back(total_count+1);
+            total_count += line.length()+1;
+            if (line!=""){
+                read_line_pos.push_back(total_count); 
+            }
         }
+        //read_line_pos.pop_back(); <- finalement utile pour récupérer la taille de la dernière séquence
         return read_line_pos;
     }
     else{
@@ -50,20 +74,32 @@ vector<uint64_t> read_line_position(const string& filename){
     return {};
 }
 
-vector<uint64_t> contig_line_position(const string& gfa_file){
-    //Notes in a vector the position of the begining of each contig in a gfa file
-    vector<uint64_t> contig_line_pos={0};
-    fstream gfa(gfa_file, ios::in);
-    if(gfa){
+vector<uint64_t> contig_line_position(const string& paf_file, int nb_contigs, int rev_comp){
+    //Notes in a vector the position of the begining of each contig in a paf file
+    uint64_t nb_contigs_positions = (rev_comp == 0) ? nb_contigs * 2 : nb_contigs;
+    vector<uint64_t> contig_line_pos(nb_contigs_positions, 0);
+    fstream paf(paf_file, ios::in);
+    if(paf){
         string line;
         uint64_t total_count = 0;
-        getline(gfa, line);
-        total_count += line.length()+1;
-        while(!gfa.eof()){
-            getline(gfa, line);
+        uint64_t ctg_nb = 0;
+        string ctg = "";
+        std::regex pattern(R"(utg0+(\d+)[lc])");
+        std::smatch match;
+        while(!paf.eof()){
+            getline(paf, line);
             vector<string> words_of_line = split_string(line, '\t');
-            if(words_of_line.size()>0 && words_of_line[0]=="S"){
-                contig_line_pos.push_back(total_count);
+            if(words_of_line.size()>0 && words_of_line[5]!=ctg){
+                ctg = words_of_line[5];
+                if (std::regex_match(words_of_line[5], match, pattern)){
+                    ctg_nb = std::stoi(match[1])-1;
+                }
+                if (rev_comp==0 && words_of_line[4]=="-"){
+                    contig_line_pos[ctg_nb+nb_contigs] = total_count;
+                }
+                else{
+                    contig_line_pos[ctg_nb] = total_count;
+                }
             }
             total_count += line.length()+1;
         }
@@ -75,42 +111,33 @@ vector<uint64_t> contig_line_position(const string& gfa_file){
     return {};
 }
 
-string get_read_sequence(const vector<uint64_t>& read_line_pos, const string& filename, uint64_t read_id){
-    //Returns in a string the 'read_id'th sequence of the fasta file
-    auto pos_seq = read_line_pos[(read_id*2)+1];
-    auto pos_entete_suivant = read_line_pos[(read_id*2)+2];
+string get_read_part(const vector<uint64_t>& read_line_pos, const string& filename, const string& format, uint64_t read_num, const string& part){
+    //Returns in a string the 'read_id'th part (header, sequence, separator, qscore) of the fasta/fastq file
+    int block_size = 2;
+    if (format=="fastq"){
+        block_size = 4;
+    }
 
-    //zstr::ifstream file_in(filename, ios::in);
+    int part_num = 0;
+    if (part=="sequence"){
+        part_num = 1;
+    }
+    else if (part=="separator"){
+        part_num = 2;
+    }
+    else if (part=="qscore"){
+        part_num = 3;
+    }
+
+    auto pos_part = read_line_pos[(read_num)*block_size+part_num];
+    auto pos_next_line = read_line_pos[(read_num*block_size)+1+part_num];
+
     fstream file_in(filename, ios::in);
     char line_seq[500000];
     if(file_in){
-        file_in.seekg((pos_seq+read_id*2), file_in.beg);
-        file_in.read(line_seq, ((pos_entete_suivant+read_id)-(pos_seq+read_id)));
-        line_seq[pos_entete_suivant-pos_seq+2] = 0;
-        file_in.close();
-        return line_seq;
-    }
-    else{
-        cerr << "Error opening the input file (get_read_sequence)." << endl;
-    }
-    return "";
-}
-
-string get_read_header(const vector<uint64_t>& read_line_pos, const string& filename, uint64_t read_id){
-    //Returns in a string the 'read_id'th header of the fasta file
-    auto pos_seq = read_line_pos[(read_id*2)+1]+(read_id*2);
-    auto pos_header = read_line_pos[(read_id)*2]+(read_id*2-1);
-    if(read_id==0){
-        pos_header=0;
-        pos_seq=read_line_pos[1];
-    }
-    fstream file_in(filename, ios::in);
-    //zstr::ifstream file_in(filename, ios::in);
-    char line_seq[500000];
-    if(file_in){
-        file_in.seekg(pos_header, file_in.beg);
-        file_in.read(line_seq, (pos_seq-pos_header));
-        line_seq[pos_seq-pos_header-1] = 0;
+        file_in.seekg(pos_part, file_in.beg);
+        file_in.read(line_seq, (pos_next_line-pos_part));
+        line_seq[pos_next_line-pos_part-1] = 0;
         file_in.close();
         return line_seq;
     }
@@ -120,58 +147,36 @@ string get_read_header(const vector<uint64_t>& read_line_pos, const string& file
     return "";
 }
 
-vector<int> order_ctgs(const string& gfa_file, int algo){
+vector<int> order_ctgs(const string& gfa_links_file, int nb_contigs, int algo){
     //Creates a vector containing the numbers of the contigs in the right order (depth-first search if algo=1, breadth-first search if algo=2)
     if(algo!=1 && algo!=2){
         cerr << "Wrong algorithm number (order_ctgs). Must be 1 or 2" << endl;
     }
     //Fills a map with the graph : some contigs are linked with one or more other contigs, the info is found in the gfa file 
     ankerl::unordered_dense::map<int, vector<int>> links;
-    int nb_contigs=0;
 
     typedef pair <int, vector<int>> Int_vector;
     string ctg1, ctg2;
     int num_ctg1, num_ctg2=0;
     char c;
     int i;
+    std::regex pattern(R"(utg0+(\d+)[lc])");
+    std::smatch match1, match2;
     vector<int>::iterator it;
-    fstream gfa(gfa_file, ios::in);
+    fstream gfa(gfa_links_file, ios::in);
     if(gfa){
         string line;
         while(!gfa.eof()){
             getline(gfa, line);
             vector<string> words_of_line = split_string(line, '\t');
-            if(words_of_line.size()>0 && words_of_line[0]=="L"){
+            if(words_of_line.size()>0){
                 //Retrieve the couple of contigs
-                ctg1="";
-                i=0;
-                c=words_of_line[1][i];
-                while(c=='u' || c=='t' || c=='g' || c=='0'){
-                    i++;
-                    c=words_of_line[1][i];
+                if (std::regex_match(words_of_line[1], match1, pattern)){
+                    num_ctg1 = std::stoi(match1[1])-1;
                 }
-                while(c!='l' && c!='c'){
-                    ctg1+=c;
-                    i++;
-                    c=words_of_line[1][i];
+                if (std::regex_match(words_of_line[3], match2, pattern)){
+                    num_ctg2 = std::stoi(match2[1])-1;
                 }
-                num_ctg1 = stoi(ctg1);
-                num_ctg1-=1;
-
-                ctg2="";
-                i=0;
-                c=words_of_line[3][i];
-                while(c=='u' || c=='t' || c=='g' || c=='0'){
-                    i++;
-                    c=words_of_line[3][i];
-                }
-                while(c!='l'){
-                    ctg2+=c;
-                    i++;
-                    c=words_of_line[3][i];
-                }
-                num_ctg2 = stoi(ctg2);
-                num_ctg2-=1;
 
                 //Insert the couple in the map
                 if(num_ctg1!=num_ctg2){
@@ -191,9 +196,6 @@ vector<int> order_ctgs(const string& gfa_file, int algo){
                     }
                 }
             }
-            if(words_of_line.size()>0 && words_of_line[0]=="S"){
-                nb_contigs++;
-            } 
         }
     }
     //Depth-first search :
@@ -247,101 +249,6 @@ vector<int> order_ctgs(const string& gfa_file, int algo){
     return(order);
 }
 
-ankerl::unordered_dense::map<int, int> unmapped_reads_miniasm(int nb_reads, const string& gfa_file, const string& log_file){
-    //Returns a map containing the number of the reads that are not mapped on a contig in the gfa file
-    typedef pair <int, int> Int_Pair;
-    //The vector reads notes if a read is seen (1) or not (0)
-    vector<int> reads(nb_reads, 0);
-    fstream gfa(gfa_file, ios::in);
-    if(gfa){
-        string line;
-        while(!gfa.eof()){
-            getline(gfa, line);
-            vector<string> words_of_line = split_string(line, '\t');
-            if(words_of_line.size()>0 && words_of_line[0]=="a"){
-                //The line begins with an "a" so it corresponds to a read, update of the vector reads
-                string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[split_string(split_string(words_of_line[3], ':')[0], '.').size()-1]; 
-                reads[stoul(num_read)] = 1;
-            }
-        }
-    }
-    //We browse the vector and write in a map the number of unmapped reads
-    ankerl::unordered_dense::map<int, int> unmapped;
-    for(int i=0; i<reads.size(); i++){
-        if(reads[i]==0){
-            unmapped.insert(Int_Pair(i, 0));
-        }
-    }
-    fstream log(log_file, ios::out | ios::app);
-    log << "reads non mappés : "+ to_string(unmapped.size()) << endl;
-    cout << "reads non mappés : "+ to_string(unmapped.size()) << endl;
-    return(unmapped);
-}
-
-ankerl::unordered_dense::map<int, vector<int>> link_unmapped_gz(int nb_reads, const string& gfa_file, const string& compressed_paf_file, const string& log_file){
-    //Returns a map that links a mapped read to a vector of unmapped reads according to the alignment in the paf file
-    typedef pair <int, int> Int_Pair;
-    typedef pair <int, vector<int>> Int_vector;
-    //The map unmapped contains the reads that are not mapped and not associated with an other read
-    ankerl::unordered_dense::map<int, int> unmapped = unmapped_reads_miniasm(nb_reads, gfa_file, log_file);
-    //The map newly_mapped contains the reads that are not mapped in the gfa file but already associated with another read
-    ankerl::unordered_dense::map<int, int> newly_mapped;
-    //The map links contains the associations of mapped reads with a vector of unmapped reads
-    ankerl::unordered_dense::map<int, vector<int>> links;
-    int num_current_read;
-    int current_read_align;
-    zstr::ifstream paf(compressed_paf_file);
-    if(paf){
-        //Reads the paf file containing alignments between reads
-        string line;
-        getline(paf, line);
-        while(!paf.eof()){
-            //For each alignment, if the first read is unmapped and unassociated with an other, we look at the read aligned with it
-            //If the read aligned with it is unmapped (associated or not with an other), we associate the 2 reads and marked it in 'newly_mapped'
-            //Otherwise we take a look at other alignments until we find a mapped read to associate our unmapped read with
-            vector<string> words_of_line = split_string(line, '\t');
-            if(words_of_line.size()>0){
-                num_current_read = stoi(split_string(words_of_line[0], '.')[split_string(words_of_line[0], '.').size()-1]);
-                if(unmapped.find(num_current_read)!=unmapped.end()){
-                    //The read is unmapped and unassociated
-                    //We associate it with the first mapped read we find
-                    current_read_align = stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]); 
-                    while(words_of_line.size()>0 && (unmapped.find(stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]))!=unmapped.end() || newly_mapped.find(stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]))!=newly_mapped.end()) && num_current_read == stoi(split_string(words_of_line[0], '.')[split_string(words_of_line[0], '.').size()-1]) && !paf.eof()){
-                        getline(paf, line);
-                        words_of_line = split_string(line, '\t');
-                        if(words_of_line.size()>0 && num_current_read == stoi(split_string(words_of_line[0], '.')[split_string(words_of_line[0], '.').size()-1])){
-                            current_read_align = stoi(split_string(words_of_line[5], '.')[split_string(words_of_line[5], '.').size()-1]);
-                        }
-                    }
-                    //We reached the end of the bloc or we found a mapped read
-                    if(unmapped.count(current_read_align)==0 && newly_mapped.count(current_read_align)==0){
-                        //If the read is mapped, we associate the couple of reads in 'links'
-                        if(links.find(current_read_align)==links.end()){
-                            links.insert(Int_vector(current_read_align, {num_current_read}));
-                        }
-                        else{
-                            links[current_read_align].push_back(num_current_read);
-                        }
-                        unmapped.erase(num_current_read);
-                        newly_mapped.insert(Int_Pair(num_current_read, 0));
-                    }
-                    
-                }
-                while(words_of_line.size()>0 && num_current_read == stoi(split_string(words_of_line[0], '.')[split_string(words_of_line[0], '.').size()-1]) && !paf.eof()){
-                    getline(paf, line);
-                    words_of_line = split_string(line, '\t');
-                }
-            }
-        }
-    }
-    //Writes the last reads that are not mapped in the map at the index -1
-    links.insert(Int_vector(-1, {}));
-    for (auto& elem : unmapped){
-        links[-1].push_back(elem.first);
-    }
-    return links;
-}
-
 vector<int> unincluded_ctgs(int nb_ctgs, vector<int> ctgs_order){
     //Returns a vector containing the numbers of the contigs that are not in the contigs order (because they are not linked in the graph)
     vector<int> ctgs(nb_ctgs, 0);
@@ -373,24 +280,81 @@ vector<int> shuffle_vector(vector<int> vector_to_shuffle){
     return(vector_to_shuffle);
 }
 
-void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string& gfa_file, const string& out_file, const string& paf_file, const string& log_file, int ctgs_sort){
+void write_read_in_file(int read_num, fstream& out, const string& reads_file, int rev_comp, const string& strand, const string& format, const vector<uint64_t>& read_line_pos){
+    //écrire le read selon son numéro (champ 0) (si fastq écrire 4 lignes, si rev_comp et orientation = - (champ 4) retourner la seq)
+    if (rev_comp==1 && strand=="-"){
+        out << get_read_part(read_line_pos, reads_file, format, read_num, "header")+"\n"+reverse_complement(get_read_part(read_line_pos, reads_file, format, read_num, "sequence")) << endl;
+    }
+    else{
+        out << get_read_part(read_line_pos, reads_file, format, read_num, "header")+"\n"+get_read_part(read_line_pos, reads_file, format, read_num, "sequence") << endl;
+    }
+    if (format=="fastq"){
+        if (rev_comp==1 && strand=="-"){
+            string qscore = get_read_part(read_line_pos, reads_file, format, read_num, "qscore");
+            reverse(qscore.begin(), qscore.end());
+            out << get_read_part(read_line_pos, reads_file, format, read_num, "separator")+"\n"+qscore << endl;
+        }
+        else{
+            out << get_read_part(read_line_pos, reads_file, format, read_num, "separator")+"\n"+get_read_part(read_line_pos, reads_file, format, read_num, "qscore") << endl;
+        }
+    }
+}
+
+void write_all_reads_from_ctg(fstream& out, fstream& paf, const string& reads_file, int rev_comp, const string& format, const vector<uint64_t>& read_line_pos, const vector<uint64_t>& contig_line_pos, int ctg_written_num, int& mapped, int& reads_ecrits, vector<int>& written_reads, vector<int>& reads_in_ctg, string strand_to_write, int index_to_add_if_strand_minus){
+    regex pattern(R"(utg0+(\d+)[lc])");
+    string line;
+    string strand;
+    int ctg_num;
+    int read_num;
+
+    paf.clear();
+    paf.seekg(contig_line_pos[index_to_add_if_strand_minus + ctg_written_num], paf.beg);
+    // lire les lignes et écrire les reads tant que numéro de contig (champ 5) == i
+    getline(paf, line);
+    vector<string> words_of_line = split_string(line, '\t');
+    //extraire le numéro de contig
+    ctg_num = -1;
+    smatch match;
+    if (regex_match(words_of_line[5], match, pattern)){
+        ctg_num = std::stoi(match[1])-1;
+    }
+    while (!paf.eof() && ctg_num==ctg_written_num && (strand_to_write=="both" || (strand_to_write!="both" && words_of_line[4]==strand_to_write))){
+        read_num = stoi(words_of_line[0]);
+        strand = words_of_line[4];
+        // si le read n'a pas encore été écrit
+        if (written_reads[read_num]==0){
+            //écrire le read selon son numéro (champ 0) (si fastq écrire 4 lignes, si rev_comp et orientation = - (champ 4) retourner la seq)
+            write_read_in_file(read_num, out, reads_file, rev_comp, strand, format, read_line_pos);
+            //noter quelque part que le read a été écrit et augmenter le compteur du nombre de reads écrits
+            written_reads[read_num] = 1;
+            mapped++;
+            reads_ecrits++;
+            reads_in_ctg[ctg_num]++;
+        }
+        //lire la ligne suivante
+        getline(paf, line);
+        words_of_line = split_string(line, '\t');
+        if (words_of_line.size()>0 && regex_match(words_of_line[5], match, pattern)){
+            ctg_num = std::stoi(match[1])-1;
+        }
+    }
+}
+
+void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string& format, const string& gfa_links_file, int nb_ctgs, const string& out_file, const string& paf_file, const string& log_file, int rev_comp, int ctgs_sort){
     //Writes a new file containing the same reads as 'reads_file', in a different order : 
-    //the reads are in the same order as they are mapped to contigs, contigs are put in a depth-first search order, and the reads that are not in any contigs are brougth together to similar reads in the contigs
-    typedef pair <int, int> Int_Pair;
+    //the reads are in the same order as they are mapped to contigs, contigs are put in a depth-first search order, and the reads that are not in any contigs are brougth together at the end of the file
+
     vector<uint64_t> read_line_pos = read_line_position(reads_file);
-    int nb_reads = read_line_pos.size()/2-1;
-    ankerl::unordered_dense::map<int, vector<int>> unmapped_align = link_unmapped_gz(nb_reads, gfa_file, paf_file, log_file);
-    
-    vector<uint64_t> contig_line_pos = contig_line_position(gfa_file);
-    int nb_contigs = contig_line_pos.size();
-    int mapped=0;
-    int non_map = 0;
-    int reads_ecrits=0;
-    vector<int> ctgs(nb_contigs);
-    for(int i=0; i<nb_contigs; i++){
+    vector<uint64_t> contig_line_pos = contig_line_position(paf_file, nb_ctgs, rev_comp);
+
+
+    int nb_reads = (read_line_pos.size() - 1) / (format == "fasta" ? 2 : 4);
+
+    //Ordering the contigs with the chosen algorithm (in ctgs_sort)
+    vector<int> ctgs(nb_ctgs);
+    for(int i=0; i<nb_ctgs; i++){
         ctgs[i]=i;
     }
-    //Ordering the contigs with the chosen algorithm (in ctgs_sort)
     vector<int> ctgs_sorted;
     if(ctgs_sort==0){
         //Random
@@ -398,80 +362,74 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
     }
     else if(ctgs_sort==1){
         //depth-first
-        ctgs_sorted = order_ctgs(gfa_file, 1);
+        ctgs_sorted = order_ctgs(gfa_links_file, nb_ctgs, 1);
     }
     else{
         //breadth-first
-        ctgs_sorted = order_ctgs(gfa_file, 2);
+        ctgs_sorted = order_ctgs(gfa_links_file, nb_ctgs, 2);
     }
-    cout << "number of contigs : "+to_string(nb_contigs) << endl;
-    vector<int> lasting_ctgs = unincluded_ctgs(nb_contigs, ctgs_sorted);
-    fstream gfa(gfa_file, ios::in);
+    
+    vector<int> lasting_ctgs = unincluded_ctgs(nb_ctgs, ctgs_sorted);
+
+    int mapped=0;
+    int non_map = 0;
+    int reads_ecrits=0;
+
+    vector<int> written_reads(nb_reads, 0);
+    vector<int> reads_in_ctg(nb_ctgs, 0);
+
+    std::regex pattern(R"(utg0+(\d+)[lc])");
+
+    fstream paf(paf_file, ios::in);
     fstream out(out_file, ios::out);
-    //zstr::ifstream reads(reads_file, ios::in);
     fstream reads(reads_file, ios::in);
-    if(gfa && out && reads){
-        string line;
+    if(paf && out && reads){
         //Writes the contigs that are in the order
-        for (int i: ctgs_sorted){
-            gfa.clear();
-            gfa.seekg(contig_line_pos[i], gfa.beg);
-            getline(gfa, line);
-            //Line begining with "S" that is not interesting, we copy only the ones that start with "a"
-            getline(gfa, line);
-            vector<string> words_of_line = split_string(line, '\t');
-            while(words_of_line.size()>0 && (words_of_line[0]=="a" || words_of_line[0]=="L")){
-                if(words_of_line[0]=="a"){
-                    string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[1];
-                    out << get_read_header(read_line_pos, reads_file, stoul(num_read))+"\n"+get_read_sequence(read_line_pos, reads_file, stoul(num_read)) << endl;
-                    reads_ecrits++;
-                    //Insertion of unmapped reads linked to this read
-                    if(unmapped_align.find(stoi(num_read))!=unmapped_align.end()){
-                        for(vector<int>::iterator it = unmapped_align[stoi(num_read)].begin(); it!=unmapped_align[stoi(num_read)].end(); it++){
-                            out << get_read_header(read_line_pos, reads_file, *it)+"\n"+get_read_sequence(read_line_pos, reads_file, *it) << endl;
-                            reads_ecrits++;
-                            mapped++;
-                        }
-                        unmapped_align.erase(stoi(num_read));
-                    }
-                }
-                getline(gfa, line);
-                words_of_line = split_string(line, '\t');
+        if (rev_comp==0){
+            // Write the strand +
+            for (int i: ctgs_sorted){
+                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, mapped, reads_ecrits, written_reads, reads_in_ctg, "+", 0);
+            }
+            // Write the strand -
+            for (int i: ctgs_sorted){
+                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, mapped, reads_ecrits, written_reads, reads_in_ctg, "-", nb_ctgs);
             }
         }
+        else{
+            for (int i: ctgs_sorted){
+                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, mapped, reads_ecrits, written_reads, reads_in_ctg, "both", 0);
+            }
+        }
+
         //Writes the contigs that are alone
-        for (int i: lasting_ctgs){
-            gfa.clear();
-            gfa.seekg(contig_line_pos[i], gfa.beg);
-            getline(gfa, line);
-            //Line begining with "S" that is not interesting, we copy only the ones that start with "a"
-            getline(gfa, line);
-            vector<string> words_of_line = split_string(line, '\t');
-            while(words_of_line.size()>0 && (words_of_line[0]=="a" || words_of_line[0]=="L")){
-                if(words_of_line[0]=="a"){
-                    string num_read = split_string(split_string(words_of_line[3], ':')[0], '.')[1];
-                    out << get_read_header(read_line_pos, reads_file, stoul(num_read))+"\n"+get_read_sequence(read_line_pos, reads_file, stoul(num_read)) << endl;
-                    reads_ecrits++;
-                    //Insertion of unmapped reads linked to this read
-                    if(unmapped_align.find(stoi(num_read))!=unmapped_align.end()){
-                        for(vector<int>::iterator it = unmapped_align[stoi(num_read)].begin(); it!=unmapped_align[stoi(num_read)].end(); it++){
-                            out << get_read_header(read_line_pos, reads_file, *it)+"\n"+get_read_sequence(read_line_pos, reads_file, *it) << endl;
-                            reads_ecrits++;
-                            mapped++;
-                        }
-                        unmapped_align.erase(stoi(num_read));
-                    }
-                }
-                getline(gfa, line);
-                words_of_line = split_string(line, '\t'); 
+        if (rev_comp==0){
+            // Write the strand +
+            for (int i: lasting_ctgs){
+                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, mapped, reads_ecrits, written_reads, reads_in_ctg, "+", 0);
+            }
+            // Write the strand -
+            for (int i: lasting_ctgs){
+                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, mapped, reads_ecrits, written_reads, reads_in_ctg, "-", nb_ctgs);
             }
         }
-        //Write the reads that are still alone
-        for(vector<int>::iterator it = unmapped_align[-1].begin(); it!=unmapped_align[-1].end(); it++){
-            out << get_read_header(read_line_pos, reads_file, *it)+"\n"+get_read_sequence(read_line_pos, reads_file, *it) << endl;
-            reads_ecrits++;
-            non_map++;
+        else{
+            for (int i: lasting_ctgs){
+                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, mapped, reads_ecrits, written_reads, reads_in_ctg, "both", 0);
+            }
         }
+
+        //Write the reads that are still alone
+        for (int i=0; i<nb_reads; i++){
+            if (written_reads[i]==0){
+                out << get_read_part(read_line_pos, reads_file, format, i, "header")+"\n"+get_read_part(read_line_pos, reads_file, format, i, "sequence") << endl;
+                if (format=="fastq"){
+                    out << get_read_part(read_line_pos, reads_file, format, i, "separator")+"\n"+get_read_part(read_line_pos, reads_file, format, i, "qscore") << endl;
+                }
+                non_map++;
+                reads_ecrits++;
+            }
+        }
+
         fstream log(log_file, ios::out | ios::app);
         log << "reads mappés par la fonction : "+to_string(mapped) << endl;
         log << "reads toujours non mappés : "+to_string(non_map) << endl;
@@ -486,28 +444,36 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
 int main(int argc, char *argv[])
 {
     string readsfile;
+    string format;
     string gfafile;
+    string gfa_links;
+    int nb_ctgs;
     string outfile;
     string paffile;
     string logfile;
+    int rev_comp;
     int ctgs_sort=1;
-    if (argc<6){
-        cerr << "Usage : ./reads_sorting [READS FILE] [GFA FILE] [OUT FILE] [PAF FILE] [LOG FILE] [ctgs sorting algo]" << endl;
+    if (argc<9){
+        cerr << "Usage : ./reads_sorting [READS FILE] [FORMAT] [GFA LINKS FILE] [NB OF CTGS] [OUT FILE] [PAF FILE] [LOG FILE] [REVERSE COMPLEMENT] [ctgs sorting algo]" << endl;
         return EXIT_FAILURE;
     }
     else{
         readsfile = argv[1];
-        gfafile = argv[2];
-        outfile = argv[3];
-        paffile = argv[4];
-        logfile = argv[5];
-        if(argc==7){
+        format = argv[2];
+        gfa_links = argv[3];
+        nb_ctgs = stoi(argv[4]);
+        outfile = argv[5];
+        paffile = argv[6];
+        logfile = argv[7];
+        rev_comp = stoi(argv[8]);
+        if(argc==10){
             //Option : ctgs sort 0:random order, 1:depth-first search, 2:breadth-first search. Default=1
-            ctgs_sort = stoi(argv[6]);
+            ctgs_sort = stoi(argv[9]);
         }
     }
 
-    ctgs_and_unmapped_sorting_compressed(readsfile, gfafile, outfile, paffile, logfile, ctgs_sort);
+    ctgs_and_unmapped_sorting_compressed(readsfile, format, gfa_links, nb_ctgs, outfile, paffile, logfile, rev_comp, ctgs_sort);
 
     return 0;
 }
+

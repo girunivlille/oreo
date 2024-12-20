@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
+import math
 import sys
 
 # Lit les trois fichiers de benchmark (dans l'ordre untouched, shuffled et sorted)
@@ -15,11 +16,10 @@ def graph_from_memtimes(log_file, pie_graph_file):
     all_reads = int(lines[3].strip().split(':')[1].strip())
 
     in_contigs = all_reads - unmapped
-    linked = mapped - in_contigs
 
-    pie_data = [in_contigs, linked, still_unmapped]
+    pie_data = [in_contigs, mapped, still_unmapped]
 
-    plt.pie(pie_data, labels = ["in_contigs", "linked", "unmapped"], autopct=lambda pct: str(all_reads*pct/100))
+    plt.pie(pie_data, labels = ["in_contigs", "linked", "unmapped"], autopct=lambda pct: str(math.floor(all_reads*pct/100)))
     plt.title("Répartition des reads dans leur catégorie de mapping")
     plt.savefig(pie_graph_file)
 
