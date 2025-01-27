@@ -4,11 +4,16 @@ OReO take a FASTA/FASTQ file as an input and reorders it according to seuqneces 
 
 ## Compilation
 
-git clone --recurse-submodules https://github.com/girunivlille/oreo
+git clone --recurse-submodules https://github.com/girunivlille/oreo 
+
 cd minimap2 && make
+
 cd ..
+
 cd miniasm && make
+
 cd ..
+
 make
 
 ## Usage
