@@ -16,14 +16,18 @@ def main():
                         help='Format of the reads file: fasta or fastq. Default=fastq')
     parser.add_argument('--ctgs_reads', type=str, nargs=1, required=False,
                         help='Path of the fasta/fastq file containing the reads that will be used to construct contigs.')
+    parser.add_argument('--output', type=str, nargs=1, required=False, default=["None"],
+                        help='Output path. Default=readspath_sorted.fasta')
     parser.add_argument('--techno', type=str, nargs=1, required=False, default=["ont"],
                         help='Sequencing technology : ont (ont), pacbio (pb). Default=ont')
+    parser.add_argument('-k', '--keep', action='count', default=0, required=False, 
+                        help='Keep temporary files.')
     parser.add_argument('--rev_comp', type=int, nargs=1, required=False, default=[1],
                         help='Reads are the same in the output and the input, separated by strands (0) or reads are all put in the same strand in the output (1). Default=1')
     parser.add_argument('--ctg_sort', type=int, nargs=1, required=False, default=[1],
                         help='Algorithm used to sort the contigs : random order (0), depth-first search (1), breadth-first search (2). Default=1')
-    parser.add_argument('--opt_minimap', type=str, nargs=1, required=False, default=["-t16 -k21 -w15"],
-                        help='String containing all options to run all-vs-all minimap2 (miniasm input). Default= -t16 -k21 -w15')
+    parser.add_argument('--opt_minimap', type=str, nargs=1, required=False, default=["-t32 -k21 -w15"],
+                        help='String containing all options to run all-vs-all minimap2 (miniasm input). Default= -t32 -k21 -w15')
     parser.add_argument('--opt_miniasm', type=str, nargs=1, required=False, default=["-I1 -F1"],
                         help='String containing all options to run miniasm. Default=-I1 -F1')
     parser.add_argument('-t', '--memtime', action='count', default=0, required=False,
@@ -72,14 +76,17 @@ def main():
                     sorted_reads_vs_ctgs_paf_file = os.path.splitext(reads_file)[0] + '_reads_vs_ctgs_sorted.paf'
                     log_file = os.path.splitext(reads_file)[0] + '_oreo_log.txt'
                     pie_file = os.path.splitext(reads_file)[0] + '_map_reads_pie.png'
-                    reads_sorted_file = os.path.splitext(reads_file)[0] + '_sorted' + os.path.splitext(reads_file)[1]
+                    if args.output[0]=="None":
+                        reads_sorted_file = os.path.splitext(reads_file)[0] + '_sorted' + os.path.splitext(reads_file)[1]
+                    else:
+                        reads_sorted_file = args.output[0]
 
                     # minimap2 : all-vs-all of the reads
                     print("Mapping the reads...")
                     if args.memtime>0:
                         command = '/usr/bin/time -v '+minimap2_file+' -x ava-'+args.techno[0]+' '+args.opt_minimap[0]+' '+ctg_reads_file+' '+ctg_reads_file+' 2> '+minimap_benchmark+' | gzip -1 > '+paf_file
                     else:
-                        command = minimap2_file+' -x ava-'+args.techno[0]+' '+args.opt_minimap[0]+' '+ctg_reads_file+' '+ctg_reads_file+' | gzip -1 > '+paf_file
+                        command = minimap2_file+' -t 32 -x ava-'+args.techno[0]+' '+args.opt_minimap[0]+' '+ctg_reads_file+' '+ctg_reads_file+' | gzip -1 > '+paf_file
                     os.system(command)
 
                     # miniasm to construct contigs using minimap2 output
@@ -111,9 +118,9 @@ def main():
                     # minimap2 : map the reads on the contigs
                     print("Mapping the reads on the contigs...")
                     if args.memtime>0:
-                        command = '/usr/bin/time -v '+minimap2_file+' -x map-'+args.techno[0]+' '+ctgs_file+' '+readscopy_file+' 2> '+minimap_map_ctgs_benchmark+' > '+reads_vs_ctgs_paf_file
+                        command = '/usr/bin/time -v '+minimap2_file+' -k21 -w15 -x map-'+args.techno[0]+' '+ctgs_file+' '+readscopy_file+' 2> '+minimap_map_ctgs_benchmark+' > '+reads_vs_ctgs_paf_file
                     else:
-                        command = minimap2_file+' -x map-'+args.techno[0]+' '+args.opt_minimap[0]+' '+ctgs_file+' '+readscopy_file+' > '+reads_vs_ctgs_paf_file
+                        command = minimap2_file+' -k21 -w15 -x map-'+args.techno[0]+' '+args.opt_minimap[0]+' '+ctgs_file+' '+readscopy_file+' > '+reads_vs_ctgs_paf_file
                     os.system(command)
 
                     # Sort minimap output by increasing position of the reads in each contig
@@ -135,21 +142,22 @@ def main():
                     print("Sorted reads saved in "+reads_sorted_file)
 
                     #removing useless files (gfa, paf.gz, reads copy)
-                    print("Removing temporary files...")
-                    command = 'rm '+readscopy_file
-                    os.system(command)
-                    command = 'rm '+gfa_file
-                    os.system(command)
-                    command = 'rm '+paf_file
-                    os.system(command)
-                    command = 'rm '+gfa_links_file
-                    os.system(command)
-                    command = 'rm '+sorted_reads_vs_ctgs_paf_file
-                    os.system(command)
-                    command = 'rm '+reads_vs_ctgs_paf_file
-                    os.system(command)
-                    command = 'rm '+ctgs_file
-                    os.system(command)
+                    if args.keep==0:
+                        print("Removing temporary files...")
+                        command = 'rm '+readscopy_file
+                        os.system(command)
+                        command = 'rm '+gfa_file
+                        os.system(command)
+                        command = 'rm '+paf_file
+                        os.system(command)
+                        command = 'rm '+gfa_links_file
+                        os.system(command)
+                        command = 'rm '+sorted_reads_vs_ctgs_paf_file
+                        os.system(command)
+                        command = 'rm '+reads_vs_ctgs_paf_file
+                        os.system(command)
+                        command = 'rm '+ctgs_file
+                        os.system(command)
 
                     # Plot infos in the log file
                     #command = "python3 " + log_to_plot_file + " " + log_file + " " + pie_file
@@ -162,4 +170,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
