@@ -2,3 +2,4 @@ copy_readsfile
 copy_readsfile.o
 reads_sorting
 reads_sorting.o
+.vscode/
