@@ -14,7 +14,6 @@
 #include <regex>
 #include <algorithm>
 #include "unordered_dense.h"
-#include "zstr/src/zstr.hpp"
 
 using namespace std;
 

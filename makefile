@@ -89,5 +89,4 @@ archive: clean
 
 # DEPENDANCES
 copy_readsfile.o: copy_readsfile.cpp
-reads_sorting.o: reads_sorting.cpp zstr/src/zstr.hpp \
- zstr/src/strict_fstream.hpp
+reads_sorting.o: reads_sorting.cpp
