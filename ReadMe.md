@@ -1,6 +1,6 @@
 # OReO: Optimised Read Order
 
-OReO takes a FASTA/FASTQ file as an input and reorders it according to seuqneces order in the genome (i.e. sequence similarity).
+OReO takes a FASTA/FASTQ file as an input and reorders it according to sequences order in the genome (i.e. sequence similarity).
 
 ## Installation 
 
