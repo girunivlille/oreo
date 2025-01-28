@@ -133,7 +133,7 @@ string get_read_part(const vector<uint64_t>& read_line_pos, const string& filena
     auto pos_next_line = read_line_pos[(read_num*block_size)+1+part_num];
 
     fstream file_in(filename, ios::in);
-    char line_seq[500000];
+    char line_seq[5000000];
     if(file_in){
         file_in.seekg(pos_part, file_in.beg);
         file_in.read(line_seq, (pos_next_line-pos_part));
