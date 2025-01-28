@@ -5,7 +5,8 @@ OReO takes a FASTA/FASTQ file as an input and reorders it according to sequences
 ## Installation 
 
 ```
-git clone --recurse-submodules https://github.com/girunivlille/oreo 
+git clone --recurse-submodules https://github.com/girunivlille/oreo
+cd oreo
 cd minimap2 && make
 cd ..
 cd miniasm && make
