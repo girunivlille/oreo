@@ -16,12 +16,12 @@ make
 
 ## Usage
 
-`python3 oreo.py --reads readsfile.fa --format fasta|fastq --techno ont|pb [OPTIONS]`
+`python3 oreo.py --reads readsfile.fasta|readfile.fastq --format fasta|fastq --techno ont|pb [OPTIONS]`
 
 Options:
 * `--output` - name of the sorted read file
 * `--rev_comp` - reads are in the same orientation in the output and in the input, separated by strands (0) or reads are reverse complemented when necessary in the output (1). Default=1
-* `--ctgs_reads` - path of the fasta/fastq file containing the reads that will be used to construct contigs. Default= reads file in --reads.
+* `--ctgs_reads` - path of the fasta/fastq file containing the reads that will be used to construct contigs. It is recommanded to use at least 30X of the longest reads. Default= reads file in --reads.
 * `--ctg_sort` - algorithm used to sort the contigs : random order (0), depth-first search (1), breadth-first search (2). Default=1
 * `--opt_minimap_ava` - string containing all options to run all-vs-all minimap2 (miniasm input). Please write it this way: --opt_minimap_ava="TheOptionsYouWant". Default= -t32 -k21 -w15
 * `--opt_minimap_reads_vs_ctgs` - string containing all options to run reads vs contigs minimap2 (miniasm input). Please write it this way: --opt_minimap_reads_vs_ctgs="TheOptionsYouWant". Default= -k21 -w15
@@ -29,6 +29,9 @@ Options:
 * `-k, --keep` - keep temporary files (minimap, miniasm)
 * `-t, --memtime` - store '_memtime' files containing each step's memory and time usage.
 * `-h, --help` - print help
+
+OReO outputs the sorted read file and a file named `readfile`_reverse_order.txt. The second file can be used to retrieve the initial file from the sorted file.
+It can be deleted if the original order or original strands will not be needed afterwards.
 
 ## Integrity cheking
 
@@ -45,4 +48,20 @@ The checker exits with 1 if at least 2 files hold different content, else it exi
 
 ## Retrieve the original order
 
+The original file can be retrieved from the sorted file and the `readfile`_reverse_order.txt file using the command:
 
+`./reverse_order readfile_sorted.fasta|readfile_sorted.fastq fasta|fastq readfile_reverse_order.txt outputfile.fasta|outputfile.fastq`
+
+It retrieves both the original order and the original strands.
+
+## Example
+
+An example is available in the directory `example`. The reads were simulated with Badread from a phage genome.
+To try OReO, one can use the following lines:
+
+```
+cd oreo
+python3 oreo.py --reads example/badread_lambdavirus_ont_50X.fasta --format fasta --techno ont --opt_minimap_ava='-t10 -k15 -w10' --opt_miniasm='-1 -2' --opt_minimap_reads_vs_ctgs='-k15 -w10'
+python3 integrity_checker.py --readfiles example/badread_lambdavirus_ont_50X.fasta,example/badread_lambdavirus_ont_50X_sorted.fasta
+./reverse_order example/badread_lambdavirus_ont_50X_sorted.fasta fasta example/badread_lambdavirus_ont_50X_reverse_order.txt example/badread_lambdavirus_ont_50X_desorted.fasta
+```
