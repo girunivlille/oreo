@@ -4,4 +4,7 @@ reads_sorting
 reads_sorting.o
 reverse_order
 reverse_order.o
+example/badread_lambdavirus_ont_desorted.fasta
+example/badread_lambdavirus_ont_reverse_order.fasta
+example/badread_lambdavirus_ont_sorted.fasta
 .vscode/

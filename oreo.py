@@ -10,26 +10,28 @@ oreo_version = 1.0
 def main():
     parser = argparse.ArgumentParser(description='OReO : Returns a new file containing the sorted reads.')
 
-    parser.add_argument('--reads', type=str, nargs=1, required=False,
-                        help='Path of the fasta/fastq file containing the reads that have to be sorted.')
-    parser.add_argument('--format', type=str, nargs=1, required=False, default=["fastq"],
-                        help='Format of the reads file: fasta or fastq. Default=fastq')
-    parser.add_argument('--ctgs_reads', type=str, nargs=1, required=False,
-                        help='Path of the fasta/fastq file containing the reads that will be used to construct contigs.')
+    parser.add_argument('--reads', type=str, nargs=1, required=True,
+                        help='[MANDATORY] Path of the fasta/fastq file containing the reads that have to be sorted.')
+    parser.add_argument('--format', type=str, nargs=1, required=True, default=["fastq"],
+                        help='[MANDATORY] Format of the reads file: fasta or fastq. Default=fastq')
+    parser.add_argument('--techno', type=str, nargs=1, required=True, default=["ont"],
+                        help='[MANDATORY] Sequencing technology : ont (ont), pacbio (pb). Default=ont')
+    parser.add_argument('--ctgs_reads', type=str, nargs=1, required=False, default=["None"],
+                        help='Path of the fasta/fastq file containing the reads that will be used to construct contigs. Default= reads file in --reads.')
     parser.add_argument('--output', type=str, nargs=1, required=False, default=["None"],
                         help='Output path. Default=readspath_sorted.fasta')
-    parser.add_argument('--techno', type=str, nargs=1, required=False, default=["ont"],
-                        help='Sequencing technology : ont (ont), pacbio (pb). Default=ont')
     parser.add_argument('-k', '--keep', action='count', default=0, required=False, 
                         help='Keep temporary files.')
     parser.add_argument('--rev_comp', type=int, nargs=1, required=False, default=[1],
                         help='Reads are the same in the output and the input, separated by strands (0) or reads are all put in the same strand in the output (1). Default=1')
     parser.add_argument('--ctg_sort', type=int, nargs=1, required=False, default=[1],
                         help='Algorithm used to sort the contigs : random order (0), depth-first search (1), breadth-first search (2). Default=1')
-    parser.add_argument('--opt_minimap', type=str, nargs=1, required=False, default=["-t32 -k21 -w15"],
-                        help='String containing all options to run all-vs-all minimap2 (miniasm input). Default= -t32 -k21 -w15')
-    parser.add_argument('--opt_miniasm', type=str, nargs=1, required=False, default=["-I1 -F1"],
-                        help='String containing all options to run miniasm. Default=-I1 -F1')
+    parser.add_argument('--opt_minimap_ava', type=str, required=False, default="-t32 -k21 -w15",
+                        help='String containing all options to run all-vs-all minimap2 (miniasm input). Please write it this way: --opt_minimap_ava="TheOptionsYouWant". Default= -t32 -k21 -w15')
+    parser.add_argument('--opt_minimap_reads_vs_ctgs', type=str, required=False, default="-k21 -w15",
+                        help='String containing all options to run reads vs contigs minimap2 (miniasm input). Please write it this way: --opt_minimap_reads_vs_ctgs="TheOptionsYouWant". Default= -k21 -w15')
+    parser.add_argument('--opt_miniasm', type=str, required=False, default="-I1 -F1",
+                        help='String containing all options to run miniasm. Please write it this way: --opt_miniasm="TheOptionsYouWant". Default=-I1 -F1')
     parser.add_argument('-t', '--memtime', action='count', default=0, required=False,
                         help='Creates files with time and memory summary (suffix _memtime).')
     parser.add_argument('-v', '--version', action='count', default=0, required=False,
@@ -61,7 +63,7 @@ def main():
                     #retrieve the folder from where the file is executed
                     reads_file = os.path.abspath(args.reads[0])
                     readscopy_file = os.path.join(os.path.dirname(reads_file),"copie-"+os.path.basename(reads_file))
-                    ctg_reads_file = os.path.abspath(args.ctgs_reads[0])
+                    ctg_reads_file = reads_file if args.ctgs_reads[0]=="None" else os.path.abspath(args.ctgs_reads[0])
                     minimap_benchmark = os.path.splitext(reads_file)[0]+'_minimap_all_vs_all_memtime.txt'
                     miniasm_benchmark = os.path.splitext(reads_file)[0]+'_miniasm_memtime.txt'
                     minimap_map_ctgs_benchmark = os.path.splitext(reads_file)[0]+'_minimap_reads_vs_contigs_memtime.txt'
@@ -85,17 +87,17 @@ def main():
                     # minimap2 : all-vs-all of the reads
                     print("Mapping the reads...")
                     if args.memtime>0:
-                        command = '/usr/bin/time -v '+minimap2_file+' -x ava-'+args.techno[0]+' '+args.opt_minimap[0]+' '+ctg_reads_file+' '+ctg_reads_file+' 2> '+minimap_benchmark+' | gzip -1 > '+paf_file
+                        command = '/usr/bin/time -v '+minimap2_file+' -x ava-'+args.techno[0]+' '+args.opt_minimap_ava+' '+ctg_reads_file+' '+ctg_reads_file+' 2> '+minimap_benchmark+' | gzip -1 > '+paf_file
                     else:
-                        command = minimap2_file+' -t 32 -x ava-'+args.techno[0]+' '+args.opt_minimap[0]+' '+ctg_reads_file+' '+ctg_reads_file+' | gzip -1 > '+paf_file
+                        command = minimap2_file+' -x ava-'+args.techno[0]+' '+args.opt_minimap_ava+' '+ctg_reads_file+' '+ctg_reads_file+' | gzip -1 > '+paf_file
                     os.system(command)
 
                     # miniasm to construct contigs using minimap2 output
                     print("Building contigs...")
                     if args.memtime>0:
-                        command = '/usr/bin/time -v '+miniasm_file+' '+args.opt_miniasm[0]+' -f '+ctg_reads_file+' '+paf_file+' > '+gfa_file+' 2> '+miniasm_benchmark
+                        command = '/usr/bin/time -v '+miniasm_file+' '+args.opt_miniasm+' -f '+ctg_reads_file+' '+paf_file+' > '+gfa_file+' 2> '+miniasm_benchmark
                     else:
-                        command = miniasm_file+' '+args.opt_miniasm[0]+' -f '+ctg_reads_file+' '+paf_file+' > '+gfa_file
+                        command = miniasm_file+' '+args.opt_miniasm+' -f '+ctg_reads_file+' '+paf_file+' > '+gfa_file
                     os.system(command)
 
                     # Retrieve miniasm contigs and links
@@ -119,9 +121,9 @@ def main():
                     # minimap2 : map the reads on the contigs
                     print("Mapping the reads on the contigs...")
                     if args.memtime>0:
-                        command = '/usr/bin/time -v '+minimap2_file+' -k21 -w15 -x map-'+args.techno[0]+' '+ctgs_file+' '+readscopy_file+' 2> '+minimap_map_ctgs_benchmark+' > '+reads_vs_ctgs_paf_file
+                        command = '/usr/bin/time -v '+minimap2_file+' '+args.opt_minimap_reads_vs_ctgs+' -x map-'+args.techno[0]+' '+ctgs_file+' '+readscopy_file+' 2> '+minimap_map_ctgs_benchmark+' > '+reads_vs_ctgs_paf_file
                     else:
-                        command = minimap2_file+' -k21 -w15 -x map-'+args.techno[0]+' '+args.opt_minimap[0]+' '+ctgs_file+' '+readscopy_file+' > '+reads_vs_ctgs_paf_file
+                        command = minimap2_file+' '+args.opt_minimap_reads_vs_ctgs+' -x map-'+args.techno[0]+' '+ctgs_file+' '+readscopy_file+' > '+reads_vs_ctgs_paf_file
                     os.system(command)
 
                     # Sort minimap output by increasing position of the reads in each contig
@@ -159,6 +161,9 @@ def main():
                         os.system(command)
                         command = 'rm '+ctgs_file
                         os.system(command)
+                        command = 'rm '+log_file
+                        os.system(command)
+                        
 
                     # Plot infos in the log file
                     #command = "python3 " + log_to_plot_file + " " + log_file + " " + pie_file
