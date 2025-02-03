@@ -75,6 +75,7 @@ def main():
                     reads_vs_ctgs_paf_file = os.path.splitext(reads_file)[0] + '_reads_vs_ctgs.paf'
                     sorted_reads_vs_ctgs_paf_file = os.path.splitext(reads_file)[0] + '_reads_vs_ctgs_sorted.paf'
                     log_file = os.path.splitext(reads_file)[0] + '_oreo_log.txt'
+                    reverse_order_file = os.path.splitext(reads_file)[0] + '_reverse_order.txt'
                     pie_file = os.path.splitext(reads_file)[0] + '_map_reads_pie.png'
                     if args.output[0]=="None":
                         reads_sorted_file = os.path.splitext(reads_file)[0] + '_sorted' + os.path.splitext(reads_file)[1]
@@ -135,9 +136,9 @@ def main():
                     # Final reads sorting using minimap output
                     print("Sorting the reads...")
                     if args.memtime>0:
-                        command = '/usr/bin/time -v '+reads_sorting_file + ' ' + reads_file + ' ' + args.format[0] + ' ' + gfa_links_file + ' '+ str(nb_ctgs) + ' ' + reads_sorted_file + ' ' + sorted_reads_vs_ctgs_paf_file + ' ' + log_file + ' '+ str(args.rev_comp[0]) + ' ' + str(args.ctg_sort[0])+' 2> '+sorting_benchmark
+                        command = '/usr/bin/time -v '+reads_sorting_file + ' ' + reads_file + ' ' + args.format[0] + ' ' + gfa_links_file + ' '+ str(nb_ctgs) + ' ' + reads_sorted_file + ' ' + sorted_reads_vs_ctgs_paf_file + ' ' + log_file + ' '+ str(args.rev_comp[0]) + ' '+ reverse_order_file + ' ' + str(args.ctg_sort[0])+' 2> '+sorting_benchmark
                     else:
-                        command = reads_sorting_file + ' ' + reads_file + ' ' + args.format[0] + ' ' + gfa_links_file + ' '+ str(nb_ctgs) + ' ' + reads_sorted_file + ' ' + sorted_reads_vs_ctgs_paf_file + ' ' + log_file + ' '+ str(args.rev_comp[0]) + ' ' + str(args.ctg_sort[0])
+                        command = reads_sorting_file + ' ' + reads_file + ' ' + args.format[0] + ' ' + gfa_links_file + ' '+ str(nb_ctgs) + ' ' + reads_sorted_file + ' ' + sorted_reads_vs_ctgs_paf_file + ' ' + log_file + ' '+ str(args.rev_comp[0]) + ' '+ reverse_order_file + ' ' + str(args.ctg_sort[0])
                     os.system(command)
                     print("Sorted reads saved in "+reads_sorted_file)
 

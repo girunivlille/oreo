@@ -2,7 +2,7 @@
 # CONFIGURATION GENERALE
 #
 
-EXEC = copy_readsfile reads_sorting
+EXEC = copy_readsfile reads_sorting reverse_order
 OBJETS = 
 NOM_PROJET = oreo
 
@@ -90,3 +90,4 @@ archive: clean
 # DEPENDANCES
 copy_readsfile.o: copy_readsfile.cpp
 reads_sorting.o: reads_sorting.cpp
+reverse_order.o: reverse_order.cpp
