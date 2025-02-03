@@ -37,4 +37,12 @@ One can verify that the reads in the sorted file are the same that in the initia
 `python3 integrity_checker.py --readfiles readfile.fasta,readfile_sorted.fasta [OPTIONS]`
 
 Options:
-*
+* `--seq_only` - compares only sequences. Will ignore quality scores if one or several files are fastq.
+* `--rc_sensitivity` - sensitivity to reverse complement. If used, a sequence and its reverse complement will not be handled as the same sequence. By default they are handled as the same.
+
+This can be extended to more than two files. By default, this checker considers that a sequence holds the same information as its reverse complement. This can be disabled by the --rc_sensitivity option.
+The checker exits with 1 if at least 2 files hold different content, else it exits with 0.
+
+## Retrieve the original order
+
+
