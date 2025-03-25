@@ -19,15 +19,15 @@ make
 `python3 oreo.py --reads readsfile.fasta|readfile.fastq --format fasta|fastq --techno ont|pb [OPTIONS]`
 
 Options:
-* `--output` - name of the sorted read file
+* `--output_dir` - name of the output directory that will be created (relative path). Default=PathToReadsFile/ReadsFileName_sorted
 * `--rev_comp` - reads are in the same orientation in the output and in the input, separated by strands (0) or reads are reverse complemented when necessary in the output (1). Default=1
 * `--ctgs_reads` - path of the fasta/fastq file containing the reads that will be used to construct contigs. It is recommanded to use at least 30X of the longest reads. Default= reads file in --reads.
 * `--ctg_sort` - algorithm used to sort the contigs : random order (0), depth-first search (1), breadth-first search (2). Default=1
-* `--opt_minimap_ava` - string containing all options to run all-vs-all minimap2 (miniasm input). Please write it this way: --opt_minimap_ava="TheOptionsYouWant". Default= -t32 -k21 -w15
-* `--opt_minimap_reads_vs_ctgs` - string containing all options to run reads vs contigs minimap2 (miniasm input). Please write it this way: --opt_minimap_reads_vs_ctgs="TheOptionsYouWant". Default= -k21 -w15
+* `--opt_minimap_ava` - string containing all options to run all-vs-all minimap2 (miniasm input). Please write it this way: --opt_minimap_ava="TheOptionsYouWant". Default= -t32 -k21 -w15 for ONT and -t32 -k28 -w100 for HiFi
+* `--opt_minimap_reads_vs_ctgs` - string containing all options to run reads vs contigs minimap2 (miniasm input). Please write it this way: --opt_minimap_reads_vs_ctgs="TheOptionsYouWant". Default= -k21 -w15 for ONT and -k28 -w100 for HiFi
 * `--opt_miniasm` - string containing all options to run miniasm. Please write it this way: --opt_miniasm="TheOptionsYouWant". Default=-I1 -F1
 * `-k, --keep` - keep temporary files (minimap, miniasm)
-* `-t, --memtime` - store '_memtime' files containing each step's memory and time usage.
+* `-t, --memtime` - Create a csv file with a time and memory summary for each step (suffix _memtime)
 * `-h, --help` - print help
 
 OReO outputs the sorted read file and a file named `readfile`_reverse_order.txt. The second file can be used to retrieve the initial file from the sorted file.

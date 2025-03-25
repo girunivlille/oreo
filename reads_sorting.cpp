@@ -262,7 +262,7 @@ vector<int> unincluded_ctgs(int nb_ctgs, vector<int> ctgs_order){
         }
     }
 
-    cout << "solo ctgs "+to_string(lasting_ctgs.size()) << endl;
+    cout << "Number of contigs that are not linked to the graph : "+to_string(lasting_ctgs.size()) << endl;
     
     return(lasting_ctgs);
 }
@@ -280,7 +280,7 @@ vector<int> shuffle_vector(vector<int> vector_to_shuffle){
 }
 
 void write_read_in_file(int read_num, fstream& out, const string& reads_file, int rev_comp, const string& strand, const string& format, const vector<uint64_t>& read_line_pos, fstream& reverse_order){
-    //écrire le read selon son numéro (champ 0) (si fastq écrire 4 lignes, si rev_comp et orientation = - (champ 4) retourner la seq)
+    // Write the read depending on its number (param 0) (write 4 lines if fastq, write reverse complement if rev_comp and orientation = - (param 4))
     if (rev_comp==1 && strand=="-"){
         out << get_read_part(read_line_pos, reads_file, format, read_num, "header")+"\n"+reverse_complement(get_read_part(read_line_pos, reads_file, format, read_num, "sequence")) << endl;
         reverse_order << to_string(read_num)+" -" << endl;
@@ -301,7 +301,7 @@ void write_read_in_file(int read_num, fstream& out, const string& reads_file, in
     }
 }
 
-void write_all_reads_from_ctg(fstream& out, fstream& paf, const string& reads_file, int rev_comp, const string& format, const vector<uint64_t>& read_line_pos, const vector<uint64_t>& contig_line_pos, int ctg_written_num, int& mapped, int& reads_ecrits, vector<int>& written_reads, vector<int>& reads_in_ctg, string strand_to_write, int index_to_add_if_strand_minus, fstream& reverse_order){
+void write_all_reads_from_ctg(fstream& out, fstream& paf, const string& reads_file, int rev_comp, const string& format, const vector<uint64_t>& read_line_pos, const vector<uint64_t>& contig_line_pos, int ctg_written_num, int& nb_mapped_reads, int& nb_written_reads, vector<int>& written_reads, vector<int>& reads_in_ctg, string strand_to_write, int index_to_add_if_strand_minus, fstream& reverse_order, int& nb_rc_reads){
     regex pattern(R"(utg0+(\d+)[lc])");
     string line;
     string strand;
@@ -310,10 +310,10 @@ void write_all_reads_from_ctg(fstream& out, fstream& paf, const string& reads_fi
 
     paf.clear();
     paf.seekg(contig_line_pos[index_to_add_if_strand_minus + ctg_written_num], paf.beg);
-    // lire les lignes et écrire les reads tant que numéro de contig (champ 5) == i
+    // Read lines et write reads while contig number (param 5) == i
     getline(paf, line);
     vector<string> words_of_line = split_string(line, '\t');
-    //extraire le numéro de contig
+    // Extract contig number
     ctg_num = -1;
     smatch match;
     if (regex_match(words_of_line[5], match, pattern)){
@@ -322,17 +322,20 @@ void write_all_reads_from_ctg(fstream& out, fstream& paf, const string& reads_fi
     while (!paf.eof() && ctg_num==ctg_written_num && (strand_to_write=="both" || (strand_to_write!="both" && words_of_line[4]==strand_to_write))){
         read_num = stoi(words_of_line[0]);
         strand = words_of_line[4];
-        // si le read n'a pas encore été écrit
+        // If read is not already written
         if (written_reads[read_num]==0){
-            //écrire le read selon son numéro (champ 0) (si fastq écrire 4 lignes, si rev_comp et orientation = - (champ 4) retourner la seq)
+            // Write the read depending on its number (param 0) (write 4 lines if fastq, write reverse complement if rev_comp and orientation = - (param 4))
             write_read_in_file(read_num, out, reads_file, rev_comp, strand, format, read_line_pos, reverse_order);
-            //noter quelque part que le read a été écrit et augmenter le compteur du nombre de reads écrits
+            if (rev_comp==1 && strand=="-"){
+                nb_rc_reads++;
+            }
+            // Mark the read as written and increment written reads count
             written_reads[read_num] = 1;
-            mapped++;
-            reads_ecrits++;
+            nb_mapped_reads++;
+            nb_written_reads++;
             reads_in_ctg[ctg_num]++;
         }
-        //lire la ligne suivante
+        // Read the next line
         getline(paf, line);
         words_of_line = split_string(line, '\t');
         if (words_of_line.size()>0 && regex_match(words_of_line[5], match, pattern)){
@@ -341,9 +344,11 @@ void write_all_reads_from_ctg(fstream& out, fstream& paf, const string& reads_fi
     }
 }
 
-void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string& format, const string& gfa_links_file, int nb_ctgs, const string& out_file, const string& paf_file, const string& log_file, int rev_comp, int ctgs_sort, const string& reverse_order_file){
+void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string& format, const string& gfa_links_file, int nb_ctgs, const string& out_file, const string& paf_file, int rev_comp, int ctgs_sort, const string& reverse_order_file){
     //Writes a new file containing the same reads as 'reads_file', in a different order : 
     //the reads are in the same order as they are mapped to contigs, contigs are put in a depth-first search order, and the reads that are not in any contigs are brougth together at the end of the file
+
+    cout << "Total number of contigs : "+to_string(nb_ctgs) << endl;
 
     vector<uint64_t> read_line_pos = read_line_position(reads_file);
     vector<uint64_t> contig_line_pos = contig_line_position(paf_file, nb_ctgs, rev_comp);
@@ -372,9 +377,10 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
     
     vector<int> lasting_ctgs = unincluded_ctgs(nb_ctgs, ctgs_sorted);
 
-    int mapped=0;
-    int non_map = 0;
-    int reads_ecrits=0;
+    int nb_mapped_reads=0;
+    int nb_unmapped_reads = 0;
+    int nb_written_reads=0;
+    int nb_rc_reads=0;
 
     vector<int> written_reads(nb_reads, 0);
     vector<int> reads_in_ctg(nb_ctgs, 0);
@@ -390,16 +396,16 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
         if (rev_comp==0){
             // Write the strand +
             for (int i: ctgs_sorted){
-                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, mapped, reads_ecrits, written_reads, reads_in_ctg, "+", 0, reverse_order);
+                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, nb_mapped_reads, nb_written_reads, written_reads, reads_in_ctg, "+", 0, reverse_order, nb_rc_reads);
             }
             // Write the strand -
             for (int i: ctgs_sorted){
-                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, mapped, reads_ecrits, written_reads, reads_in_ctg, "-", nb_ctgs, reverse_order);
+                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, nb_mapped_reads, nb_written_reads, written_reads, reads_in_ctg, "-", nb_ctgs, reverse_order, nb_rc_reads);
             }
         }
         else{
             for (int i: ctgs_sorted){
-                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, mapped, reads_ecrits, written_reads, reads_in_ctg, "both", 0, reverse_order);
+                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, nb_mapped_reads, nb_written_reads, written_reads, reads_in_ctg, "both", 0, reverse_order, nb_rc_reads);
             }
         }
 
@@ -407,16 +413,16 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
         if (rev_comp==0){
             // Write the strand +
             for (int i: lasting_ctgs){
-                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, mapped, reads_ecrits, written_reads, reads_in_ctg, "+", 0, reverse_order);
+                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, nb_mapped_reads, nb_written_reads, written_reads, reads_in_ctg, "+", 0, reverse_order, nb_rc_reads);
             }
             // Write the strand -
             for (int i: lasting_ctgs){
-                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, mapped, reads_ecrits, written_reads, reads_in_ctg, "-", nb_ctgs, reverse_order);
+                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, nb_mapped_reads, nb_written_reads, written_reads, reads_in_ctg, "-", nb_ctgs, reverse_order, nb_rc_reads);
             }
         }
         else{
             for (int i: lasting_ctgs){
-                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, mapped, reads_ecrits, written_reads, reads_in_ctg, "both", 0, reverse_order);
+                write_all_reads_from_ctg(out, paf, reads_file, rev_comp, format, read_line_pos, contig_line_pos, i, nb_mapped_reads, nb_written_reads, written_reads, reads_in_ctg, "both", 0, reverse_order, nb_rc_reads);
             }
         }
 
@@ -428,19 +434,15 @@ void ctgs_and_unmapped_sorting_compressed(const string& reads_file, const string
                 if (format=="fastq"){
                     out << get_read_part(read_line_pos, reads_file, format, i, "separator")+"\n"+get_read_part(read_line_pos, reads_file, format, i, "qscore") << endl;
                 }
-                non_map++;
-                reads_ecrits++;
+                nb_unmapped_reads++;
+                nb_written_reads++;
             }
         }
 
-        fstream log(log_file, ios::out | ios::app);
-        log << "reads mappés par la fonction : "+to_string(mapped) << endl;
-        log << "reads toujours non mappés : "+to_string(non_map) << endl;
-        log << "reads ecrits : "+to_string(reads_ecrits)<<endl;
-
-        cout << "reads mappés par la fonction : "+to_string(mapped) << endl;
-        cout << "reads toujours non mappés : "+to_string(non_map) << endl;
-        cout << "reads ecrits : "+to_string(reads_ecrits)<<endl;
+        cout << "Total number of written reads : "+to_string(nb_written_reads)<<endl;
+        cout << "Number of reads that are mapped to a contig : "+to_string(nb_mapped_reads) << endl;
+        cout << "Number of reads that are unmapped to the contigs : "+to_string(nb_unmapped_reads) << endl;
+        cout << "Number of reads that had been reversed-complemented in the output : "+to_string(nb_rc_reads) << endl;
     }
 }
 
@@ -453,12 +455,11 @@ int main(int argc, char *argv[])
     int nb_ctgs;
     string outfile;
     string paffile;
-    string logfile;
     string reverse_order_file;
     int rev_comp;
     int ctgs_sort=1;
     if (argc<9){
-        cerr << "Usage : ./reads_sorting [READS FILE] [FORMAT] [GFA LINKS FILE] [NB OF CTGS] [OUT FILE] [PAF FILE] [LOG FILE] [REVERSE COMPLEMENT] [REVERSE ORDER FILE] [ctgs sorting algo]" << endl;
+        cerr << "Usage : ./reads_sorting [READS FILE] [FORMAT] [GFA LINKS FILE] [NB OF CTGS] [OUT FILE] [PAF FILE] [REVERSE COMPLEMENT] [REVERSE ORDER FILE] [ctgs sorting algo]" << endl;
         return EXIT_FAILURE;
     }
     else{
@@ -468,16 +469,15 @@ int main(int argc, char *argv[])
         nb_ctgs = stoi(argv[4]);
         outfile = argv[5];
         paffile = argv[6];
-        logfile = argv[7];
-        rev_comp = stoi(argv[8]);
-        reverse_order_file = argv[9];
-        if(argc==11){
+        rev_comp = stoi(argv[7]);
+        reverse_order_file = argv[8];
+        if(argc==10){
             //Option : ctgs sort 0:random order, 1:depth-first search, 2:breadth-first search. Default=1
-            ctgs_sort = stoi(argv[10]);
+            ctgs_sort = stoi(argv[9]);
         }
     }
 
-    ctgs_and_unmapped_sorting_compressed(readsfile, format, gfa_links, nb_ctgs, outfile, paffile, logfile, rev_comp, ctgs_sort, reverse_order_file);
+    ctgs_and_unmapped_sorting_compressed(readsfile, format, gfa_links, nb_ctgs, outfile, paffile, rev_comp, ctgs_sort, reverse_order_file);
 
     return 0;
 }
