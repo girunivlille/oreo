@@ -96,7 +96,7 @@ def main():
                             csv_memtime.write("step,time,memory\n")
 
                     # Set minimap and miniasm options
-                    opt_minimap_ava = "-t10 -k21 -w15" if (args.opt_minimap_ava=="None" and args.techno[0]=="ont") else ("-t10 -k28 -w100" if (args.opt_minimap_ava=="None" and args.techno[0]=="pb") else args.opt_minimap_ava)
+                    opt_minimap_ava = "-t32 -k21 -w15" if (args.opt_minimap_ava=="None" and args.techno[0]=="ont") else ("-t32 -k28 -w100" if (args.opt_minimap_ava=="None" and args.techno[0]=="pb") else args.opt_minimap_ava)
                     opt_minimap_reads_vs_ctgs = "-k21 -w15" if (args.opt_minimap_reads_vs_ctgs=="None" and args.techno[0]=="ont") else ("-k28 -w100" if (args.opt_minimap_reads_vs_ctgs=="None" and args.techno[0]=="pb") else args.opt_minimap_reads_vs_ctgs)
 
                     memtime_separator = [',', ',', ''] if args.memtime>0 else [':time=', 's,max_RAM=', 'k']
