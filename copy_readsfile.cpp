@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     else{
         readsfile = argv[1];
         readsfile_copy = argv[2];
-	format = argv[3];
+        format = argv[3];
     }
 
     copy_the_file(readsfile,readsfile_copy,format);

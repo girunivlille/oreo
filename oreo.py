@@ -129,7 +129,7 @@ def main():
 
                     # Copy reads for the mapping step
                     print("\n\n***************Copying the reads (step 4/7)...")
-                    command = '/usr/bin/time -f reads_copy'+ memtime_separator[0] +'%U'+memtime_separator[1]+'%M'+memtime_separator[2]+ memtime_output+' '+copy_readsfile_file + ' ' + reads_file + ' ' + readscopy_file
+                    command = '/usr/bin/time -f reads_copy'+ memtime_separator[0] +'%U'+memtime_separator[1]+'%M'+memtime_separator[2]+ memtime_output+' '+copy_readsfile_file + ' ' + reads_file + ' ' + readscopy_file + ' ' + args.format[0]
                     print(command+"\n\n")
                     os.system(command)
                     
