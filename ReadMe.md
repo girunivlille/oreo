@@ -33,6 +33,10 @@ Options:
 OReO outputs the sorted read file and a file named `readfile`_reverse_order.txt. The second file can be used to retrieve the initial file from the sorted file.
 It can be deleted if the original order or original strands will not be needed afterwards.
 
+### RAM usage
+
+If you have limited RAM, use the --ctgs_reads option and specify a subset of the reads to construct the contigs.
+
 ## Integrity cheking
 
 One can verify that the reads in the sorted file are the same that in the initial file using the following command:
