@@ -14,6 +14,13 @@ cd ..
 make
 ```
 
+## **RAM usage**
+
+**If you have limited RAM (or in order to save time), please use the --ctgs_reads option described in the following lines and specify a subset of the reads to construct the contigs.**
+If the sample only or mostly contains one specie, 30X of the longest reads can be sufficient. 
+If you do not use this option, the tool will automatically use the same file that needs to be sorted to construct the contigs and it might take time and RAM. 
+
+
 ## Usage
 
 `python3 oreo.py --reads readsfile.fasta|readfile.fastq --format fasta|fastq --techno ont|pb [OPTIONS]`
@@ -33,9 +40,6 @@ Options:
 OReO outputs the sorted read file and a file named `readfile`_reverse_order.txt. The second file can be used to retrieve the initial file from the sorted file.
 It can be deleted if the original order or original strands will not be needed afterwards.
 
-### RAM usage
-
-If you have limited RAM, use the --ctgs_reads option and specify a subset of the reads to construct the contigs.
 
 ## Integrity cheking
 
